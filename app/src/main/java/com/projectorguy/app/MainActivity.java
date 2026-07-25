@@ -2,12 +2,15 @@ package com.projectorguy.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -15,10 +18,22 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.FileProvider;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -32,9 +47,21 @@ public class MainActivity extends AppCompatActivity {
      */
     private static final String START_URL = "https://karlbutlertts.github.io/xbj-apk-store/";
 
+    private static final String TAG = "MainActivity";
+
     private static final int REQ_STORAGE = 101;
 
+    // Same manifest the store website reads, so both stay in sync on what
+    // "latest" means. Matched by packageName, not display name.
+    private static final String MANIFEST_URL =
+            "https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/apps.json";
+    private static final String APK_BASE_URL =
+            "https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/apks/";
+
     private WebView webView;
+    private View updateOverlay;
+    private TextView updateStatusText;
+    private boolean updateCheckStarted = false;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -46,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
         requestStoragePermissions();
 
         webView = findViewById(R.id.webView);
+        updateOverlay = findViewById(R.id.updateOverlay);
+        updateStatusText = findViewById(R.id.updateStatusText);
 
         // Make sure the WebView can receive D-pad/remote focus and key events
         webView.setFocusable(true);
@@ -141,15 +170,193 @@ public class MainActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.R)
     private void requestManageStorage() {
-        if (!Environment.isExternalStorageManager()) {
-            try {
-                Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                i.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(i);
-            } catch (Exception e) {
-                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
-            }
+        if (Environment.isExternalStorageManager()) return;
+
+        Intent perApp = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+        perApp.setData(Uri.parse("package:" + getPackageName()));
+        if (startActivitySafely(perApp)) return;
+
+        // Some custom/TV firmware (e.g. the projector's stripped-down Settings
+        // app) doesn't implement the per-app screen above. Fall back to the
+        // generic "all files access" list — and if even that isn't present,
+        // just log it and carry on instead of crashing the whole app on launch.
+        if (!startActivitySafely(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))) {
+            Log.w(TAG, "No Settings screen available to grant MANAGE_EXTERNAL_STORAGE; "
+                    + "USB access may be limited on this firmware.");
         }
+    }
+
+    /**
+     * Starts an activity, swallowing ActivityNotFoundException (and any other
+     * failure) so a missing Settings screen on custom firmware never crashes
+     * the app at launch. Returns true on success.
+     */
+    private boolean startActivitySafely(Intent intent) {
+        try {
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "startActivity failed for " + intent.getAction() + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    //  SELF-UPDATE CHECK
+    //
+    //  Triggered by AndroidBridge.onUnlocked() once the web page's own
+    //  6-digit-code lock screen grants access. Shows updateOverlay on top of
+    //  the (already-loaded) WebView while it checks apps.json for a newer
+    //  versionCode, then either offers to download+install the update or
+    //  dismisses the overlay after a short delay to reveal the app.
+    // ───────────────────────────────────────────────────────────────────────
+
+    public void onUserUnlocked() {
+        if (updateCheckStarted) return;
+        updateCheckStarted = true;
+        updateStatusText.setText("Checking for updates…");
+        updateOverlay.setVisibility(View.VISIBLE);
+        new Thread(this::checkForUpdate, "update-check").start();
+    }
+
+    private void checkForUpdate() {
+        try {
+            HttpURLConnection conn = (HttpURLConnection) new URL(MANIFEST_URL).openConnection();
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
+            String body = readAll(conn.getInputStream());
+            conn.disconnect();
+
+            JSONArray apps = new JSONArray(body);
+            JSONObject match = null;
+            for (int i = 0; i < apps.length(); i++) {
+                JSONObject o = apps.getJSONObject(i);
+                if (getPackageName().equals(o.optString("packageName", null))) {
+                    match = o;
+                    break;
+                }
+            }
+
+            int remoteVersionCode = match != null ? match.optInt("versionCode", -1) : -1;
+            String apkFile = match != null ? match.optString("file", null) : null;
+
+            if (remoteVersionCode <= 0 || apkFile == null) {
+                runOnUiThread(this::finishNoUpdate);
+                return;
+            }
+
+            PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
+            long localVersionCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                    ? pi.getLongVersionCode() : pi.versionCode;
+
+            if (remoteVersionCode > localVersionCode) {
+                String apkUrl = APK_BASE_URL + apkFile;
+                runOnUiThread(() -> promptForUpdate(apkUrl));
+            } else {
+                runOnUiThread(this::finishNoUpdate);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Update check failed: " + e.getMessage());
+            runOnUiThread(this::finishNoUpdate);
+        }
+    }
+
+    private String readAll(InputStream in) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) != -1) bos.write(buf, 0, n);
+        in.close();
+        return bos.toString("UTF-8");
+    }
+
+    /** No update found (or the check failed) — reveal the app after a short delay. */
+    private void finishNoUpdate() {
+        updateStatusText.setText("You're up to date");
+        updateOverlay.postDelayed(this::hideUpdateOverlay, 1200);
+    }
+
+    private void hideUpdateOverlay() {
+        updateOverlay.setVisibility(View.GONE);
+    }
+
+    private void promptForUpdate(String apkUrl) {
+        updateStatusText.setText("Update available");
+        new AlertDialog.Builder(this)
+                .setTitle("Update available")
+                .setMessage("A new version of this app is available. Download and install it now?")
+                .setCancelable(false)
+                .setPositiveButton("Download & Install", (d, w) -> startUpdateDownload(apkUrl))
+                .setNegativeButton("Not now", (d, w) -> hideUpdateOverlay())
+                .show();
+    }
+
+    private void startUpdateDownload(String apkUrl) {
+        updateStatusText.setText("Downloading update…");
+        new Thread(() -> downloadAndInstall(apkUrl), "update-download").start();
+    }
+
+    private void downloadAndInstall(String apkUrl) {
+        File dir = new File(getCacheDir(), "updates");
+        if (!dir.exists()) dir.mkdirs();
+        File out = new File(dir, "update.apk");
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(apkUrl).openConnection();
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(30000);
+            long total = conn.getContentLengthLong();
+
+            InputStream in = conn.getInputStream();
+            FileOutputStream fos = new FileOutputStream(out);
+            byte[] buf = new byte[65536];
+            long received = 0;
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                fos.write(buf, 0, n);
+                received += n;
+                if (total > 0) {
+                    int pct = (int) (received * 100 / total);
+                    runOnUiThread(() -> updateStatusText.setText("Downloading update… " + pct + "%"));
+                }
+            }
+            fos.flush();
+            fos.close();
+            in.close();
+
+            runOnUiThread(() -> installApk(out));
+        } catch (Exception e) {
+            Log.w(TAG, "Update download failed: " + e.getMessage());
+            if (out.exists()) out.delete();
+            runOnUiThread(() -> {
+                updateStatusText.setText("Update download failed");
+                updateOverlay.postDelayed(this::hideUpdateOverlay, 1500);
+            });
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private void installApk(File apkFile) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
+            updateStatusText.setText("Enable \"install unknown apps\" for this app, then try the update again.");
+            startActivitySafely(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName())));
+            updateOverlay.postDelayed(this::hideUpdateOverlay, 2500);
+            return;
+        }
+
+        Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
+        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+        installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+        installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        if (!startActivitySafely(installIntent)) {
+            updateStatusText.setText("Couldn't open the installer on this device.");
+            updateOverlay.postDelayed(this::hideUpdateOverlay, 2000);
+            return;
+        }
+        hideUpdateOverlay();
     }
 
     @Override

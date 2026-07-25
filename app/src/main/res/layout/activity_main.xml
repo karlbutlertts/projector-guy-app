@@ -8,4 +8,32 @@
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
+    <!-- Shown while checking github.com/apps.json for an app update, right
+         after the WebView's own code-lock screen grants access. Hidden the
+         rest of the time. -->
+    <LinearLayout
+        android:id="@+id/updateOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#0a0a0f"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/updateProgressSpinner"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/updateStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Checking for updates…"
+            android:textColor="#ffffff"
+            android:textSize="16sp" />
+    </LinearLayout>
 </FrameLayout>

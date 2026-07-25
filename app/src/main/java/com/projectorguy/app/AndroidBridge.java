@@ -59,6 +59,24 @@ public class AndroidBridge {
     }
 
     // ───────────────────────────────────────────────────────────────────────
+    //  ACCESS-CODE UNLOCK NOTIFICATION
+    // ───────────────────────────────────────────────────────────────────────
+
+    /**
+     * Called by the web page once its own 6-digit-code lock screen grants
+     * access (fresh code entry, or an already-valid saved session). Triggers
+     * the native "check for app update" splash. JavascriptInterface callbacks
+     * run on a WebView worker thread, not the UI thread, so hop over before
+     * touching any views.
+     */
+    @JavascriptInterface
+    public void onUnlocked() {
+        if (context instanceof MainActivity) {
+            ((MainActivity) context).runOnUiThread(((MainActivity) context)::onUserUnlocked);
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
     //  USB DETECTION
     // ───────────────────────────────────────────────────────────────────────
 
