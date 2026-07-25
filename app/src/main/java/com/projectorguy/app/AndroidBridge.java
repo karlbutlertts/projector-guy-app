@@ -586,13 +586,23 @@ public class AndroidBridge {
      */
     @JavascriptInterface
     public boolean openSettingsAction(String action) {
+        Intent intent = new Intent(action);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return startActivitySafely(intent, action);
+    }
+
+    /**
+     * Starts an activity, swallowing any failure (package/activity not
+     * present on this firmware, missing permission, etc.) so a bad
+     * engineering-menu shortcut never crashes the app. Returns true on
+     * success.
+     */
+    private boolean startActivitySafely(Intent intent, String description) {
         try {
-            Intent intent = new Intent(action);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
             return true;
         } catch (Exception e) {
-            Log.e(TAG, "openSettingsAction failed for " + action + ": " + e.getMessage());
+            Log.w(TAG, "startActivity failed for " + description + ": " + e.getMessage());
             return false;
         }
     }
@@ -617,17 +627,11 @@ public class AndroidBridge {
      */
     @JavascriptInterface
     public boolean launchApp(String packageName) {
-        try {
-            PackageManager pm = context.getPackageManager();
-            Intent intent = pm.getLaunchIntentForPackage(packageName);
-            if (intent == null) return false;
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-            return true;
-        } catch (Exception e) {
-            Log.e(TAG, "launchApp failed for " + packageName + ": " + e.getMessage());
-            return false;
-        }
+        PackageManager pm = context.getPackageManager();
+        Intent intent = pm.getLaunchIntentForPackage(packageName);
+        if (intent == null) return false;
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return startActivitySafely(intent, packageName);
     }
 
     /**
@@ -664,16 +668,10 @@ public class AndroidBridge {
      */
     @JavascriptInterface
     public boolean launchActivity(String packageName, String activityName) {
-        try {
-            String cls = activityName.startsWith(".") ? packageName + activityName : activityName;
-            Intent intent = new Intent();
-            intent.setClassName(packageName, cls);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-            return true;
-        } catch (Exception e) {
-            Log.e(TAG, "launchActivity failed for " + packageName + "/" + activityName + ": " + e.getMessage());
-            return false;
-        }
+        String cls = activityName.startsWith(".") ? packageName + activityName : activityName;
+        Intent intent = new Intent();
+        intent.setClassName(packageName, cls);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return startActivitySafely(intent, packageName + "/" + activityName);
     }
 }
