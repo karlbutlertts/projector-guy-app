@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Projector Guy — Firmware Fix</title>
+<style>
+  :root{
+    --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c27;
+    --blue:#3b6ff5; --orange:#f97316; --green:#22c87a;
+    --text:#f4f4f8; --muted:#9aa0b0; --line:#26263400;
+    --border:#262634;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"DM Sans",sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .wrap{max-width:480px;margin:0 auto;padding:18px 16px 40px;min-height:100vh}
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .back{
+    background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:8px 12px;font-size:14px;cursor:pointer;
+  }
+  .back:active{transform:scale(.97)}
+  .title-lg{font-size:22px;font-weight:700;margin:4px 0 2px}
+  .sub{color:var(--muted);font-size:14px;line-height:1.5}
+
+  .state{display:none;animation:fade .35s ease both}
+  .state.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:18px;margin:14px 0;
+  }
+  .card.amber{border-color:rgba(249,115,22,.5);background:rgba(249,115,22,.07)}
+  .card.greenline{border-color:rgba(34,200,122,.5);background:rgba(34,200,122,.07)}
+  .card.blueline{border-color:rgba(59,111,245,.5);background:rgba(59,111,245,.07)}
+  .card-title{font-weight:700;font-size:16px;margin-bottom:6px}
+  .card-body{color:var(--muted);font-size:14px;line-height:1.55}
+
+  .center{text-align:center;padding-top:40px}
+  .spinner{
+    width:54px;height:54px;border-radius:50%;margin:0 auto 22px;
+    border:4px solid var(--surface2);border-top-color:var(--blue);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .dot-pulse{
+    width:18px;height:18px;border-radius:50%;background:var(--orange);
+    margin:0 auto 22px;animation:pulse 1.4s ease-in-out infinite;
+    box-shadow:0 0 0 0 rgba(249,115,22,.5);
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(249,115,22,.55)}
+    70%{box-shadow:0 0 0 20px rgba(249,115,22,0)}
+    100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}
+  }
+
+  .usb-badge{
+    display:inline-flex;align-items:center;gap:8px;
+    background:rgba(34,200,122,.12);border:1px solid rgba(34,200,122,.5);
+    color:var(--green);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;
+  }
+  .info-row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .info-row:last-child{border-bottom:none}
+  .info-row .k{color:var(--muted)}
+  .info-row .v{font-weight:600}
+
+  .btn{
+    display:block;width:100%;border:none;border-radius:14px;
+    padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:10px;
+    transition:transform .1s ease, opacity .2s;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn[disabled]{opacity:.5;pointer-events:none}
+  .btn-orange{background:var(--orange);color:#1a0e00}
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-green{background:var(--green);color:#04210f}
+  .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+  .btn-row{display:flex;gap:10px}
+  .btn-row .btn{margin-top:0}
+
+  .file-row{
+    background:var(--surface2);border:1px solid var(--border);
+    border-radius:14px;padding:13px 14px;margin:10px 0;
+  }
+  .file-head{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .file-icon{font-size:18px}
+  .file-name{font-size:14px;font-weight:600;flex:1}
+  .file-size{font-size:12px;color:var(--muted)}
+  .file-status{font-size:12px;font-weight:600;color:var(--muted);min-width:54px;text-align:right}
+  .file-status.done{color:var(--green)}
+  .file-status.fail{color:#ff5a5a}
+  .file-status.active{color:var(--blue)}
+  .bar{height:8px;border-radius:999px;background:#0c0c12;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0;background:var(--blue);border-radius:999px;transition:width .2s ease}
+  .file-status.done ~ .bar > i, .file-row.done .bar > i{background:var(--green)}
+  .retry{margin-top:9px;font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 12px;cursor:pointer;display:none}
+  .file-row.fail .retry{display:inline-block}
+
+  .overall{margin-top:18px}
+  .overall .lbl{font-size:13px;color:var(--muted);margin-bottom:7px;display:flex;justify-content:space-between}
+  .overall .bar > i{background:var(--orange)}
+
+  .check{
+    width:86px;height:86px;border-radius:50%;margin:0 auto 18px;
+    background:rgba(34,200,122,.14);border:2px solid var(--green);
+    display:flex;align-items:center;justify-content:center;font-size:44px;color:var(--green);
+    animation:pop .5s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+
+  .verify-list{list-style:none;padding:0;margin:6px 0 0}
+  .verify-list li{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:14px}
+  .verify-list .tick{color:var(--green);font-weight:700}
+
+  ol.steps{margin:6px 0 0;padding-left:0;list-style:none;counter-reset:s}
+  ol.steps li{position:relative;padding:10px 0 10px 40px;font-size:14px;line-height:1.5;border-bottom:1px solid var(--border)}
+  ol.steps li:last-child{border-bottom:none}
+  ol.steps li::before{
+    counter-increment:s;content:counter(s);
+    position:absolute;left:0;top:9px;width:26px;height:26px;border-radius:50%;
+    background:var(--blue);color:#fff;font-size:13px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .updchoice{display:flex;gap:10px;margin:12px 0}
+  .updchoice .opt{flex:1;border-radius:12px;padding:12px;text-align:center;font-weight:700;font-size:14px;border:2px solid}
+  .updchoice .bad{border-color:#ff5a5a;background:rgba(255,90,90,.1);color:#ff8a8a}
+  .updchoice .good{border-color:var(--green);background:rgba(34,200,122,.1);color:var(--green)}
+  .keepusb{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;color:var(--orange);justify-content:center;margin-top:10px}
+
+  .errbox{display:none;color:#ff8a8a;background:rgba(255,90,90,.08);border:1px solid rgba(255,90,90,.4);border-radius:12px;padding:12px;font-size:14px;margin-top:12px}
+  .mockbadge{position:fixed;left:8px;bottom:8px;font-size:10px;color:#555;background:#111;border:1px solid #222;border-radius:6px;padding:3px 6px;z-index:99}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="back" onclick="goBack()">← Back to App</button>
+  </div>
+
+  <!-- STATE 1: checking -->
+  <section class="state active" id="s1">
+    <div class="center">
+      <div class="spinner"></div>
+      <div class="title-lg">Checking for USB drive…</div>
+      <div class="sub">One moment while we look for your USB stick.</div>
+    </div>
+  </section>
+
+  <!-- STATE 2: no usb -->
+  <section class="state" id="s2">
+    <div class="center">
+      <div class="dot-pulse"></div>
+      <div class="title-lg">Insert USB Drive</div>
+      <div class="sub">Plug a USB drive into the back of the projector.<br>We'll detect it automatically.</div>
+    </div>
+  </section>
+
+  <!-- STATE 3: confirm format -->
+  <section class="state" id="s3">
+    <h1 class="title-lg">USB detected</h1>
+    <div class="usb-badge" id="usbBadge">● USB ready</div>
+    <div class="card">
+      <div class="info-row"><span class="k">Filesystem</span><span class="v mono" id="fsType">—</span></div>
+      <div class="info-row"><span class="k">Free space</span><span class="v" id="freeSpace">—</span></div>
+      <div class="info-row"><span class="k">Mount path</span><span class="v mono" id="mountPath">—</span></div>
+    </div>
+    <div class="card amber">
+      <div class="card-title">⚠️ USB will be wiped</div>
+      <div class="card-body">All files currently on the USB drive will be deleted and it will be formatted to FAT32. This is required for the update to work.</div>
+    </div>
+    <div class="card greenline" id="alreadyFat" style="display:none">
+      <div class="card-body" style="color:var(--green)">✓ Already FAT32 — existing files will still be cleared.</div>
+    </div>
+    <div class="errbox" id="spaceErr"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goBack()">Cancel</button>
+      <button class="btn btn-orange" id="formatBtn" onclick="startFormatAndDownload()">Format &amp; Download</button>
+    </div>
+  </section>
+
+  <!-- STATE 4: formatting -->
+  <section class="state" id="s4">
+    <div class="center">
+      <div class="spinner"></div>
+      <div class="title-lg">Formatting USB to FAT32…</div>
+      <div class="sub">This only takes a few seconds. Don't remove the USB.</div>
+    </div>
+    <div class="errbox" id="fmtErr"></div>
+    <button class="btn btn-orange" id="fmtRetry" style="display:none" onclick="startFormatAndDownload()">Retry</button>
+  </section>
+
+  <!-- STATE 5: downloading -->
+  <section class="state" id="s5">
+    <h1 class="title-lg">Copying firmware to USB</h1>
+    <div class="sub" id="dlStatus">Starting…</div>
+    <div id="fileRows"></div>
+    <div class="overall">
+      <div class="lbl"><span>Overall progress</span><span id="overallPct">0%</span></div>
+      <div class="bar"><i id="overallBar"></i></div>
+    </div>
+    <div class="errbox" id="usbGoneErr"></div>
+  </section>
+
+  <!-- STATE 6: success -->
+  <section class="state" id="s6">
+    <div class="center">
+      <div class="check">✓</div>
+      <h1 class="title-lg">USB Ready — Start Your Update</h1>
+      <div class="sub">All 4 firmware files have been copied to your USB drive.</div>
+    </div>
+    <div class="card greenline">
+      <ul class="verify-list" id="verifyList"></ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">How to install the update</div>
+      <ol class="steps">
+        <li>Go to <strong>Settings</strong> on your projector home screen</li>
+        <li>Tap <strong>About</strong></li>
+        <li>Tap <strong>System Update</strong></li>
+        <li>Tap <strong>LOCAL UPDATE</strong> — do <strong>NOT</strong> tap Online Update
+          <div class="updchoice">
+            <div class="opt bad">❌ Online Update</div>
+            <div class="opt good">✅ Local Update</div>
+          </div>
+        </li>
+        <li>Tap <strong>Upgrade</strong> and wait 5–10 minutes</li>
+        <li>Do <strong>NOT</strong> remove the USB during the update</li>
+      </ol>
+    </div>
+
+    <div class="card amber">
+      <div class="card-body" style="color:#ffc089">⚠️ Do not tap <strong>Online Update</strong> — this will reinstall the broken firmware that removes Google Play Store.</div>
+    </div>
+
+    <div class="keepusb">🔌 Keep the USB plugged in!</div>
+  </section>
+</div>
+
+<div class="mockbadge" id="mockBadge" style="display:none">browser preview (mock bridge)</div>
+
+<script>
+/* ───────────────────────────────────────────────────────────────────────
+   CONFIG
+   ─────────────────────────────────────────────────────────────────────── */
+const CHUNK_SIZE = 256 * 1024;                 // 256 KB streaming chunks
+const MIN_FREE   = 1.1 * 1024 * 1024 * 1024;   // need ≥ 1.1 GB free
+const POLL_MS    = 2000;
+
+// Download order: small files first (verify USB writes work), 1 GB file last.
+const FILES = [
+  { name:'bootloader.img',   id:'1tNgwDK8LelYYdzWimXnm7f1zfr04c3pz', approx:524288,     label:'~500 KB' },
+  { name:'emmc_boot.bin',    id:'1urewSdpVX62pD_Qxthx2fVRyS2TZcZqx', approx:10240,      label:'~10 KB'  },
+  { name:'IPL_PRE.bin',      id:'1lN_BYiHZacYu-zf9UGMQTOxcp1LnjvbG', approx:10240,      label:'~10 KB'  },
+  { name:'DY_8D196_026.bin', id:'13L3ya_0zHhmFkWMKG9kPrK7vTsHgKMfi', approx:1073741824, label:'~1 GB'   },
+];
+const driveUrl = id => `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
+
+/* ───────────────────────────────────────────────────────────────────────
+   BRIDGE WRAPPER — real native calls with browser mocks for testing
+   ─────────────────────────────────────────────────────────────────────── */
+const NATIVE = !!(window.AndroidBridge && window.AndroidBridge.isUsbMounted);
+if (!NATIVE) document.getElementById('mockBadge').style.display = 'block';
+
+const mock = {
+  polls:0, fs:'ntfs', total:8053063680, free:7932215296, sessions:{},
+};
+const Bridge = {
+  isUsbMounted(){
+    if (NATIVE) return window.AndroidBridge.isUsbMounted();
+    return (++mock.polls) >= 2;                 // "plug in" after ~4s
+  },
+  getUsbPath(){
+    if (NATIVE) return window.AndroidBridge.getUsbPath();
+    return '/storage/usb0';
+  },
+  getUsbFilesystem(){
+    if (NATIVE) return window.AndroidBridge.getUsbFilesystem();
+    return mock.fs;
+  },
+  getUsbSpaceInfo(){
+    if (NATIVE) return window.AndroidBridge.getUsbSpaceInfo();
+    return mock.total + ',' + mock.free;
+  },
+  formatUsbFat32(){
+    if (NATIVE) return window.AndroidBridge.formatUsbFat32();
+    mock.fs = 'vfat'; return true;
+  },
+  clearUsbRoot(){
+    if (NATIVE) return window.AndroidBridge.clearUsbRoot();
+    return true;
+  },
+  openWriteSessionRoot(name){
+    if (NATIVE) return window.AndroidBridge.openWriteSessionRoot(name);
+    const t = 'mock-' + name; mock.sessions[t] = true; return t;
+  },
+  appendChunk(token, b64){
+    if (NATIVE) return window.AndroidBridge.appendChunk(token, b64);
+    return !!mock.sessions[token];
+  },
+  closeWriteSession(token){
+    if (NATIVE) return window.AndroidBridge.closeWriteSession(token);
+    delete mock.sessions[token]; return true;
+  },
+  abortWriteSession(token){
+    if (NATIVE) return window.AndroidBridge.abortWriteSession(token);
+    delete mock.sessions[token]; return true;
+  },
+  hasNativeDownloader(){
+    return !!(window.AndroidBridge && window.AndroidBridge.startDownloadToUsb);
+  },
+  startDownloadToUsb(url, filename){
+    if (window.AndroidBridge && window.AndroidBridge.startDownloadToUsb)
+      return window.AndroidBridge.startDownloadToUsb(url, filename);
+    return null;
+  },
+  getDownloadProgress(token){
+    if (window.AndroidBridge && window.AndroidBridge.getDownloadProgress)
+      return window.AndroidBridge.getDownloadProgress(token);
+    return null;
+  },
+};
+
+/* ───────────────────────────────────────────────────────────────────────
+   STATE MACHINE
+   ─────────────────────────────────────────────────────────────────────── */
+let pollTimer = null;
+function show(id){
+  document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function goBack(){
+  if (NATIVE && window.history.length > 1) history.back();
+  else location.href = 'index.html';
+}
+const fmtBytes = b => {
+  if (b == null) return '—';
+  const u = ['B','KB','MB','GB','TB']; let i = 0; b = +b;
+  while (b >= 1024 && i < u.length-1){ b /= 1024; i++; }
+  return b.toFixed(i ? 1 : 0) + ' ' + u[i];
+};
+
+/* ── STATE 1 → 2/3 : detect USB ── */
+function checkUsb(){
+  show('s1');
+  setTimeout(() => {
+    if (Bridge.isUsbMounted()) enterConfirm();
+    else waitForUsb();
+  }, 700);
+}
+function waitForUsb(){
+  show('s2');
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    if (Bridge.isUsbMounted()){
+      clearInterval(pollTimer);
+      enterConfirm();
+    }
+  }, POLL_MS);
+}
+
+/* ── STATE 3 : confirm format ── */
+function enterConfirm(){
+  clearInterval(pollTimer);
+  const path = Bridge.getUsbPath() || 'USB';
+  const fs   = (Bridge.getUsbFilesystem() || '').toLowerCase();
+  const info = (Bridge.getUsbSpaceInfo() || '').split(',');
+  const total = +info[0] || null, free = +info[1] || null;
+
+  document.getElementById('usbBadge').textContent = '● USB ready — ' + path;
+  document.getElementById('mountPath').textContent = path;
+  document.getElementById('fsType').textContent = fs ? fs.toUpperCase() : 'UNKNOWN';
+  document.getElementById('freeSpace').textContent =
+    (free != null ? fmtBytes(free) : '—') + (total != null ? ' / ' + fmtBytes(total) : '');
+
+  document.getElementById('alreadyFat').style.display = (fs === 'vfat') ? 'block' : 'none';
+
+  const spaceErr = document.getElementById('spaceErr');
+  const fmtBtn = document.getElementById('formatBtn');
+  if (free != null && free < MIN_FREE){
+    spaceErr.style.display = 'block';
+    spaceErr.textContent = 'Not enough free space. This update needs about 1.1 GB free, but the drive only has ' + fmtBytes(free) + '. Use a larger USB drive.';
+    fmtBtn.disabled = true;
+  } else {
+    spaceErr.style.display = 'none';
+    fmtBtn.disabled = false;
+  }
+  show('s3');
+}
+
+/* ── STATE 4 : format ── */
+async function startFormatAndDownload(){
+  show('s4');
+  document.getElementById('fmtErr').style.display = 'none';
+  document.getElementById('fmtRetry').style.display = 'none';
+  await sleep(400);
+
+  let formatted = false;
+  try { formatted = Bridge.formatUsbFat32(); } catch(e){ formatted = false; }
+
+  // Check what the filesystem actually is now. On non-rooted projectors the
+  // auto-format can't run — but if the stick is ALREADY FAT32 we can carry on
+  // (just wipe the root). We only block if it's still a non-FAT32 format.
+  const fs = (Bridge.getUsbFilesystem() || '').toLowerCase();
+  const isFat32 = formatted || fs === 'vfat' || fs === 'msdos' || fs === 'fat';
+
+  if (!isFat32){
+    const err = document.getElementById('fmtErr');
+    err.style.display = 'block';
+    err.innerHTML = 'This USB stick is <strong>' + (fs ? fs.toUpperCase() : 'not FAT32') + '</strong> and your projector can\'t reformat it automatically. ' +
+                    'Format it to <strong>FAT32</strong> first: <strong>Settings → Storage</strong>, pick the USB drive, then <strong>Format / Erase</strong> — or format it on a computer. Then come back and tap Retry.';
+    document.getElementById('fmtRetry').style.display = 'block';
+    return;
+  }
+
+  // FAT32 confirmed — clear any existing files from the root, then download.
+  try { Bridge.clearUsbRoot(); } catch(e){}
+  await downloadAll();
+}
+
+/* ── STATE 5 : download + stream to USB ── */
+function buildFileRows(){
+  const wrap = document.getElementById('fileRows');
+  wrap.innerHTML = FILES.map((f,i) => `
+    <div class="file-row" id="row${i}">
+      <div class="file-head">
+        <span class="file-icon">📄</span>
+        <span class="file-name mono">${f.name}</span>
+        <span class="file-size">${f.label}</span>
+        <span class="file-status" id="st${i}">Pending</span>
+      </div>
+      <div class="bar"><i id="pb${i}"></i></div>
+      <button class="retry" id="rt${i}" onclick="retryFile(${i})">Retry this file</button>
+    </div>`).join('');
+}
+function setRow(i, pct, status, cls){
+  document.getElementById('pb'+i).style.width = Math.max(0,Math.min(100,pct)) + '%';
+  const st = document.getElementById('st'+i);
+  st.textContent = status;
+  st.className = 'file-status' + (cls ? ' ' + cls : '');
+  const row = document.getElementById('row'+i);
+  row.classList.toggle('done', cls === 'done');
+  row.classList.toggle('fail', cls === 'fail');
+}
+function setOverall(done, total){
+  const pct = Math.round(done/total*100);
+  document.getElementById('overallBar').style.width = pct + '%';
+  document.getElementById('overallPct').textContent = pct + '%';
+}
+
+let completed = 0;
+async function downloadAll(){
+  show('s5');
+  buildFileRows();
+  completed = 0;
+  setOverall(0, FILES.length);
+  for (let i = 0; i < FILES.length; i++){
+    const ok = await downloadOne(i);
+    if (!ok) return;            // stops; per-file retry button handles resume
+    completed++;
+    setOverall(completed, FILES.length);
+  }
+  enterSuccess();
+}
+
+async function retryFile(i){
+  document.getElementById('usbGoneErr').style.display = 'none';
+  const ok = await downloadOne(i);
+  if (!ok) return;
+  // continue with the rest
+  for (let j = i+1; j < FILES.length; j++){
+    const r = await downloadOne(j);
+    if (!r) return;
+  }
+  completed = FILES.length;
+  setOverall(completed, FILES.length);
+  enterSuccess();
+}
+
+async function ensureUsbPresent(){
+  while (!Bridge.isUsbMounted()){
+    const e = document.getElementById('usbGoneErr');
+    e.style.display = 'block';
+    e.textContent = '🔌 USB removed — reinsert it to continue…';
+    await sleep(POLL_MS);
+  }
+  document.getElementById('usbGoneErr').style.display = 'none';
+}
+
+async function downloadOne(i){
+  const f = FILES[i];
+  document.getElementById('dlStatus').textContent = 'Downloading ' + f.name + '…';
+  setRow(i, 0, '0%', 'active');
+
+  await ensureUsbPresent();
+
+  // Browser preview: simulate streaming
+  if (!NATIVE){
+    for (let p = 0; p <= 100; p += 5){ setRow(i, p, p+'%', 'active'); await sleep(40); }
+    setRow(i, 100, '✓ Done', 'done');
+    return true;
+  }
+
+  // Preferred path: native downloader (no CORS, handles the ~1 GB file)
+  if (Bridge.hasNativeDownloader()){
+    return await downloadOneNative(i);
+  }
+
+  // Fallback path: fetch + stream chunks through the write-session API
+  let token = null;
+  try {
+    token = Bridge.openWriteSessionRoot(f.name);
+    if (!token) throw new Error('Could not open USB file for writing');
+
+    const resp = await fetch(driveUrl(f.id));
+    if (!resp.ok || !resp.body) throw new Error('HTTP ' + resp.status);
+    const total = +resp.headers.get('content-length') || f.approx;
+
+    const reader = resp.body.getReader();
+    let received = 0;
+    let buf = new Uint8Array(0);
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf = concat(buf, value);
+      received += value.length;
+
+      while (buf.length >= CHUNK_SIZE){
+        await ensureUsbPresent();
+        const chunk = buf.slice(0, CHUNK_SIZE);
+        buf = buf.slice(CHUNK_SIZE);
+        if (!Bridge.appendChunk(token, toBase64(chunk))) throw new Error('USB write failed');
+      }
+      const pct = Math.min(99, Math.round(received/total*100));
+      setRow(i, pct, pct + '%', 'active');
+      document.getElementById('dlStatus').textContent =
+        'Downloading ' + f.name + ' — ' + pct + '%';
+    }
+    // flush remainder
+    if (buf.length){
+      await ensureUsbPresent();
+      if (!Bridge.appendChunk(token, toBase64(buf))) throw new Error('USB write failed');
+    }
+    if (!Bridge.closeWriteSession(token)) throw new Error('Could not finalise file');
+
+    setRow(i, 100, '✓ Done', 'done');
+    return true;
+
+  } catch (err){
+    try { if (token) Bridge.abortWriteSession(token); } catch(e){}
+    setRow(i, 0, '✗ Failed', 'fail');
+    document.getElementById('dlStatus').textContent =
+      f.name + ' failed: ' + (err && err.message ? err.message : 'error') + '. Tap retry.';
+    return false;
+  }
+}
+
+async function downloadOneNative(i){
+  const f = FILES[i];
+  try {
+    const token = Bridge.startDownloadToUsb(driveUrl(f.id), f.name);
+    if (!token) throw new Error('Could not start download');
+
+    while (true){
+      await ensureUsbPresent();
+      await sleep(500);
+      const raw = Bridge.getDownloadProgress(token);
+      if (raw == null) throw new Error('Lost track of download');
+      const [received, total, state] = raw.split(',').map(Number);
+
+      const denom = total > 0 ? total : f.approx;
+      const pct = state === 1 ? 100 : Math.min(99, Math.round(received/denom*100));
+      setRow(i, pct, pct + '%', 'active');
+      document.getElementById('dlStatus').textContent =
+        'Downloading ' + f.name + ' — ' + pct + '%';
+
+      if (state === 1){ setRow(i, 100, '✓ Done', 'done'); return true; }
+      if (state === 2) throw new Error('download/write error');
+    }
+  } catch (err){
+    setRow(i, 0, '✗ Failed', 'fail');
+    document.getElementById('dlStatus').textContent =
+      f.name + ' failed: ' + (err && err.message ? err.message : 'error') + '. Tap retry.';
+    return false;
+  }
+}
+
+/* ── STATE 6 : success ── */
+function enterSuccess(){
+  document.getElementById('dlStatus').textContent = 'All files copied.';
+  document.getElementById('verifyList').innerHTML =
+    FILES.map(f => `<li><span class="tick">✓</span> <span class="mono">${f.name}</span></li>`).join('');
+  show('s6');
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   HELPERS
+   ─────────────────────────────────────────────────────────────────────── */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function concat(a, b){
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0); out.set(b, a.length);
+  return out;
+}
+function toBase64(bytes){
+  let bin = '';
+  const sub = 0x8000; // build in 32KB pieces to avoid call-stack limits
+  for (let i = 0; i < bytes.length; i += sub){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + sub));
+  }
+  return btoa(bin);
+}
+
+/* boot */
+checkUsb();
+</script>
+</body>
+</html>
