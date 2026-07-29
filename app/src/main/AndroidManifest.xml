@@ -8,6 +8,18 @@
     <!-- To install the downloaded update APK on API 26+ -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Needed to write firmware files straight onto a USB drive. On
+         Android 11+, MainActivity.requestManageStorage() requests
+         MANAGE_EXTERNAL_STORAGE at launch; on older versions it requests
+         the two below instead. Without declaring them here, both requests
+         are no-ops and every USB file write fails with EACCES. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+
     <!-- USB host so the projector exposes plugged-in drives -->
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
