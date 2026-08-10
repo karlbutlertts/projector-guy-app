@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Projector Guy</string>
+    <string name="picture_preset_activity_name">Picture Presets</string>
 </resources>

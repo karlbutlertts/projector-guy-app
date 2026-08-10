@@ -45,12 +45,36 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.ProjectorGuy">
 
+        <!-- Vendor SDK for picture/sound-mode control (com.newlink.android.projector),
+             backed by NLProjector.jar on the device's framework classpath. Not present
+             on non-XBJ hardware, hence required="false". -->
+        <uses-library android:name="com.newlink.android.projector" android:required="false" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:screenOrientation="landscape"
             android:exported="true"
             android:launchMode="singleTask"
+            android:theme="@style/Theme.ProjectorGuy">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Standalone launcher shortcut for picture presets — shows up as
+             its own icon on the home screen, reachable without going
+             through the main app's WebView UI. Replaced an earlier
+             double-MENU-press overlay attempt (see PicturePresetActivity's
+             class comment for why that didn't work on this firmware). -->
+        <activity
+            android:name=".PicturePresetActivity"
+            android:label="@string/picture_preset_activity_name"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:exported="true"
             android:theme="@style/Theme.ProjectorGuy">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

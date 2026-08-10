@@ -674,4 +674,15 @@ public class AndroidBridge {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return startActivitySafely(intent, packageName + "/" + activityName);
     }
+
+    // ───────────────────────────────────────────────────────────────────────
+    //  PICTURE PRESETS — see PictureModeBridge for how this actually talks
+    //  to the vendor's picture-mode service. Also used by the native
+    //  double-menu-press overlay (PictureOverlayService).
+    // ───────────────────────────────────────────────────────────────────────
+
+    @JavascriptInterface
+    public boolean applyPicturePreset(String preset) {
+        return PictureModeBridge.applyPreset(context, preset);
+    }
 }
