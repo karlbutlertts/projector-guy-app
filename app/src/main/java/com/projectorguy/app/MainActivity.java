@@ -95,7 +95,10 @@ public class MainActivity extends AppCompatActivity {
         s.setAllowContentAccess(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        // The store page changes often and is meant to always be fresh — the
+        // default heuristic HTTP cache was serving a build that was one
+        // commit behind, so every launch now bypasses the cache entirely.
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         s.setUserAgentString(s.getUserAgentString() + " ProjectorGuyApp/1.0");
 
         // Expose native bridge to JavaScript as window.AndroidBridge
@@ -299,13 +302,33 @@ public class MainActivity extends AppCompatActivity {
 
     private void startUpdateDownload(String apkUrl) {
         updateStatusText.setText("Downloading update…");
-        new Thread(() -> downloadAndInstall(apkUrl), "update-download").start();
+        new Thread(() -> downloadAndInstall(apkUrl, "update.apk", "update"), "update-download").start();
     }
 
-    private void downloadAndInstall(String apkUrl) {
+    // ───────────────────────────────────────────────────────────────────────
+    //  IN-APP STORE DOWNLOADS
+    //
+    //  Called from AndroidBridge.downloadApp() when a user taps an app tile
+    //  on the store page. Reuses the same download → FileProvider → installer
+    //  pipeline (and the same permission-resume handling) as the self-update
+    //  check above, so tapping Download never bounces the user out to the
+    //  system browser/Downloads app and back — it all happens in an overlay
+    //  on top of the WebView, and lands on the system install prompt directly.
+    // ───────────────────────────────────────────────────────────────────────
+
+    public void startAppDownload(String url, String displayName) {
+        if (updateOverlay.getVisibility() == View.VISIBLE) return; // something's already downloading
+        String rawSafeName = displayName.replaceAll("[^a-zA-Z0-9.]+", "_");
+        final String safeName = rawSafeName.toLowerCase().endsWith(".apk") ? rawSafeName : rawSafeName + ".apk";
+        updateStatusText.setText("Downloading " + displayName + "…");
+        updateOverlay.setVisibility(View.VISIBLE);
+        new Thread(() -> downloadAndInstall(url, safeName, displayName), "app-download").start();
+    }
+
+    private void downloadAndInstall(String apkUrl, String cacheFilename, String label) {
         File dir = new File(getCacheDir(), "updates");
         if (!dir.exists()) dir.mkdirs();
-        File out = new File(dir, "update.apk");
+        File out = new File(dir, cacheFilename);
         HttpURLConnection conn = null;
         try {
             conn = (HttpURLConnection) new URL(apkUrl).openConnection();
@@ -323,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
                 received += n;
                 if (total > 0) {
                     int pct = (int) (received * 100 / total);
-                    runOnUiThread(() -> updateStatusText.setText("Downloading update… " + pct + "%"));
+                    runOnUiThread(() -> updateStatusText.setText("Downloading " + label + "… " + pct + "%"));
                 }
             }
             fos.flush();
@@ -332,10 +355,10 @@ public class MainActivity extends AppCompatActivity {
 
             runOnUiThread(() -> installApk(out));
         } catch (Exception e) {
-            Log.w(TAG, "Update download failed: " + e.getMessage());
+            Log.w(TAG, "Download failed: " + e.getMessage());
             if (out.exists()) out.delete();
             runOnUiThread(() -> {
-                updateStatusText.setText("Update download failed");
+                updateStatusText.setText("Download failed");
                 updateOverlay.postDelayed(this::hideUpdateOverlay, 1500);
             });
         } finally {
@@ -353,7 +376,10 @@ public class MainActivity extends AppCompatActivity {
             // they return from Settings, so it doesn't just quietly time out.
             return;
         }
+        launchInstaller(apkFile);
+    }
 
+    private void launchInstaller(File apkFile) {
         pendingUpdateApk = null;
         Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
         Intent installIntent = new Intent(Intent.ACTION_VIEW);
@@ -374,15 +400,16 @@ public class MainActivity extends AppCompatActivity {
         if (pendingUpdateApk != null) {
             File apk = pendingUpdateApk;
             pendingUpdateApk = null;
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls()) {
-                installApk(apk);
-            } else {
-                // They came back without granting it — drop the overlay rather
-                // than sit there forever; the update check will offer again
-                // next launch.
-                updateStatusText.setText("Permission not granted — you can try the update again next time.");
-                updateOverlay.postDelayed(this::hideUpdateOverlay, 2500);
-            }
+            // Deliberately NOT re-checking canRequestPackageInstalls() here.
+            // On this firmware it can still report the old "denied" result
+            // for a moment right after returning from Settings, even though
+            // the toggle already shows as on — which was forcing users to
+            // flip it off/on again just to get our cached read to catch up.
+            // The system installer does its own authoritative permission
+            // check regardless, so just hand off to it directly and let it
+            // be the judge (it shows its own blocked-install prompt if the
+            // permission genuinely isn't granted).
+            launchInstaller(apk);
         }
     }
 

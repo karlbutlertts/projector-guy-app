@@ -77,6 +77,23 @@ public class AndroidBridge {
     }
 
     // ───────────────────────────────────────────────────────────────────────
+    //  IN-APP STORE DOWNLOADS
+    // ───────────────────────────────────────────────────────────────────────
+
+    /**
+     * Called by the store page when a user taps an app tile's Download
+     * button. Downloads the APK and hands it straight to the system
+     * installer without ever leaving the app for the browser/Downloads app.
+     */
+    @JavascriptInterface
+    public void downloadApp(String url, String displayName) {
+        if (context instanceof MainActivity) {
+            MainActivity activity = (MainActivity) context;
+            activity.runOnUiThread(() -> activity.startAppDownload(url, displayName));
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
     //  USB DETECTION
     // ───────────────────────────────────────────────────────────────────────
 
