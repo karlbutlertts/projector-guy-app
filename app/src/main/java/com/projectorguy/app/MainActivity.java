@@ -63,6 +63,12 @@ public class MainActivity extends AppCompatActivity {
     private TextView updateStatusText;
     private boolean updateCheckStarted = false;
 
+    // Set when installApk() has to send the user to the "install unknown
+    // apps" settings screen. onResume() checks this so the install resumes
+    // automatically as soon as they come back, instead of leaving them to
+    // figure out they need to relaunch the app and redo the whole flow.
+    private File pendingUpdateApk = null;
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -339,13 +345,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void installApk(File apkFile) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
-            updateStatusText.setText("Enable \"install unknown apps\" for this app, then try the update again.");
+            pendingUpdateApk = apkFile;
+            updateStatusText.setText("Turn on \"Allow from this source\", then come back — the update will continue automatically.");
             startActivitySafely(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getPackageName())));
-            updateOverlay.postDelayed(this::hideUpdateOverlay, 2500);
+            // Leave the overlay up — onResume() picks this back up as soon as
+            // they return from Settings, so it doesn't just quietly time out.
             return;
         }
 
+        pendingUpdateApk = null;
         Uri apkUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apkFile);
         Intent installIntent = new Intent(Intent.ACTION_VIEW);
         installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
@@ -357,6 +366,24 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         hideUpdateOverlay();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (pendingUpdateApk != null) {
+            File apk = pendingUpdateApk;
+            pendingUpdateApk = null;
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls()) {
+                installApk(apk);
+            } else {
+                // They came back without granting it — drop the overlay rather
+                // than sit there forever; the update check will offer again
+                // next launch.
+                updateStatusText.setText("Permission not granted — you can try the update again next time.");
+                updateOverlay.postDelayed(this::hideUpdateOverlay, 2500);
+            }
+        }
     }
 
     @Override
