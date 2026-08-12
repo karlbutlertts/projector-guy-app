@@ -239,6 +239,19 @@ public class MainActivity extends AppCompatActivity {
         new Thread(this::checkForUpdate, "update-check").start();
     }
 
+    /**
+     * Called from the "Check for Updates" hub tile. Unlike onUserUnlocked(),
+     * this deliberately ignores updateCheckStarted — that flag only exists to
+     * stop the automatic launch-time check from firing twice, not to block a
+     * user who explicitly asks to check again.
+     */
+    public void runManualUpdateCheck() {
+        if (updateOverlay.getVisibility() == View.VISIBLE) return; // already busy
+        updateStatusText.setText("Checking for updates…");
+        updateOverlay.setVisibility(View.VISIBLE);
+        new Thread(this::checkForUpdate, "manual-update-check").start();
+    }
+
     private void checkForUpdate() {
         try {
             HttpURLConnection conn = (HttpURLConnection) new URL(MANIFEST_URL).openConnection();

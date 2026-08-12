@@ -76,6 +76,17 @@ public class AndroidBridge {
         }
     }
 
+    /**
+     * Called by the "Check for Updates" hub tile so a user can re-check on
+     * demand, instead of only ever checking once automatically at launch.
+     */
+    @JavascriptInterface
+    public void checkForUpdates() {
+        if (context instanceof MainActivity) {
+            ((MainActivity) context).runOnUiThread(((MainActivity) context)::runManualUpdateCheck);
+        }
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     //  IN-APP STORE DOWNLOADS
     // ───────────────────────────────────────────────────────────────────────
