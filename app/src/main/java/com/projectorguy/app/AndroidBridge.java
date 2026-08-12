@@ -620,6 +620,23 @@ public class AndroidBridge {
     }
 
     /**
+     * Reads an arbitrary system property (e.g. "persist.sys.debug") via
+     * reflection on the hidden android.os.SystemProperties API — the same
+     * trick most Android apps use to read OEM/vendor flags that don't have
+     * a public getter. Returns "" if the property can't be read at all.
+     */
+    @JavascriptInterface
+    public String getSystemProperty(String key) {
+        try {
+            Class<?> cls = Class.forName("android.os.SystemProperties");
+            return (String) cls.getMethod("get", String.class).invoke(null, key);
+        } catch (Exception e) {
+            Log.w(TAG, "getSystemProperty(" + key + ") failed: " + e.getMessage());
+            return "";
+        }
+    }
+
+    /**
      * Starts an activity, swallowing any failure (package/activity not
      * present on this firmware, missing permission, etc.) so a bad
      * engineering-menu shortcut never crashes the app. Returns true on
