@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private View updateOverlay;
     private TextView updateStatusText;
+    private View installHelpOverlay;
     private boolean updateCheckStarted = false;
 
     // Set when installApk() has to send the user to the "install unknown
@@ -81,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
         webView = findViewById(R.id.webView);
         updateOverlay = findViewById(R.id.updateOverlay);
         updateStatusText = findViewById(R.id.updateStatusText);
+        installHelpOverlay = findViewById(R.id.installHelpOverlay);
+        findViewById(R.id.installHelpContinueBtn).setOnClickListener(v -> goToUnknownSourcesSettings());
 
         // Make sure the WebView can receive D-pad/remote focus and key events
         webView.setFocusable(true);
@@ -393,14 +396,26 @@ public class MainActivity extends AppCompatActivity {
     private void installApk(File apkFile) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
             pendingUpdateApk = apkFile;
-            updateStatusText.setText("Turn on \"Allow from this source\", then come back — the update will continue automatically.");
-            startActivitySafely(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:" + getPackageName())));
-            // Leave the overlay up — onResume() picks this back up as soon as
-            // they return from Settings, so it doesn't just quietly time out.
+            // Explain what's about to happen in our own branding before
+            // handing off to Android's own settings screen — that one lists
+            // every app on the device with install-unknown-apps access and
+            // gives no context, which was confusing buyers. installHelpOverlay's
+            // Continue button is what actually fires the Settings intent.
+            updateOverlay.setVisibility(View.GONE);
+            installHelpOverlay.setVisibility(View.VISIBLE);
             return;
         }
         launchInstaller(apkFile);
+    }
+
+    private void goToUnknownSourcesSettings() {
+        installHelpOverlay.setVisibility(View.GONE);
+        updateOverlay.setVisibility(View.VISIBLE);
+        updateStatusText.setText("Opening settings…");
+        startActivitySafely(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:" + getPackageName())));
+        // Leave the overlay up — onResume() picks this back up as soon as
+        // they return from Settings, so it doesn't just quietly time out.
     }
 
     private void launchInstaller(File apkFile) {
@@ -439,7 +454,13 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
+        if (installHelpOverlay != null && installHelpOverlay.getVisibility() == View.VISIBLE) {
+            // Cancel the install rather than closing the whole app — this is
+            // exactly the screen where someone's likely to reach for Back.
+            installHelpOverlay.setVisibility(View.GONE);
+            pendingUpdateApk = null;
+            hideUpdateOverlay();
+        } else if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
             super.onBackPressed();

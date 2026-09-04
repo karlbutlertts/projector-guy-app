@@ -36,4 +36,112 @@
             android:textColor="#ffffff"
             android:textSize="16sp" />
     </LinearLayout>
+
+    <!-- Shown right before we have to hand off to Android's own "install
+         unknown apps" settings screen, which we have no control over and
+         which lists every app on the device with that special access —
+         confusing on its own. This explains, in the app's own branding,
+         that nothing needs to change there (this firmware already allows
+         installs) and that pressing Back is all that's needed. -->
+    <ScrollView
+        android:id="@+id/installHelpOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/xbj_bg"
+        android:visibility="gone"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="48dp">
+
+            <ImageView
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:background="@drawable/badge_rounded_bg"
+                android:padding="16dp"
+                android:src="@drawable/xbj_icon"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:text="One more step"
+                android:textColor="#ffffff"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:gravity="center"
+                android:text="Android is about to show a permissions screen.\nThis projector already allows installs, so there's nothing to change there."
+                android:textColor="@color/xbj_text2"
+                android:textSize="18sp"
+                android:lineSpacingExtra="4dp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/back_chip_bg"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⟵"
+                    android:textColor="@color/xbj_accent"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="Just press Back to return here"
+                    android:textColor="#ffffff"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Your install will carry on automatically."
+                android:textColor="@color/xbj_text2"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/installHelpContinueBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="36dp"
+                android:minWidth="220dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                android:paddingStart="36dp"
+                android:paddingEnd="36dp"
+                android:background="@drawable/btn_primary_bg"
+                android:text="Continue"
+                android:textAllCaps="false"
+                android:textColor="@color/xbj_accent_ink"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:elevation="6dp" />
+        </LinearLayout>
+    </ScrollView>
 </FrameLayout>

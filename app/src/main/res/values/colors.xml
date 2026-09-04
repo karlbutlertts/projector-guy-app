@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors the CSS custom properties in the web app (:root in index.html)
+         so this native screen reads as the same product, not a separate one. -->
+    <color name="xbj_bg">#070a11</color>
+    <color name="xbj_text2">#9fb0cc</color>
+    <color name="xbj_accent">#5aa6ff</color>
+    <color name="xbj_accent_deep">#2563d6</color>
+    <color name="xbj_accent_ink">#07111f</color>
+    <color name="xbj_chip_bg">#1a2338</color>
+    <color name="xbj_chip_border">#2a3550</color>
+</resources>
