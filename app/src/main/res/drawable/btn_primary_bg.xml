@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/xbj_accent" />
-    <corners android:radius="999dp" />
-</shape>
+<!-- Plain solid pill by default; a visible white ring when D-pad-focused
+     (mirrors the focus-ring convention used throughout the web app) so a
+     remote user gets clear confirmation the button is selected before
+     pressing OK. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:drawable="@drawable/btn_primary_bg_focused" />
+    <item android:drawable="@drawable/btn_primary_bg_plain" />
+</selector>

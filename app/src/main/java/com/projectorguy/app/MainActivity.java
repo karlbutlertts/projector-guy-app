@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private View updateOverlay;
     private TextView updateStatusText;
     private View installHelpOverlay;
+    private View installHelpContinueBtn;
     private boolean updateCheckStarted = false;
 
     // Set when installApk() has to send the user to the "install unknown
@@ -83,7 +84,8 @@ public class MainActivity extends AppCompatActivity {
         updateOverlay = findViewById(R.id.updateOverlay);
         updateStatusText = findViewById(R.id.updateStatusText);
         installHelpOverlay = findViewById(R.id.installHelpOverlay);
-        findViewById(R.id.installHelpContinueBtn).setOnClickListener(v -> goToUnknownSourcesSettings());
+        installHelpContinueBtn = findViewById(R.id.installHelpContinueBtn);
+        installHelpContinueBtn.setOnClickListener(v -> goToUnknownSourcesSettings());
 
         // Make sure the WebView can receive D-pad/remote focus and key events
         webView.setFocusable(true);
@@ -403,6 +405,14 @@ public class MainActivity extends AppCompatActivity {
             // Continue button is what actually fires the Settings intent.
             updateOverlay.setVisibility(View.GONE);
             installHelpOverlay.setVisibility(View.VISIBLE);
+            // The WebView held D-pad focus from launch (see onCreate) and
+            // nothing ever moved it off, so the remote's OK button kept
+            // going to the hidden WebView underneath and Continue couldn't
+            // be selected at all. Posting the focus request defers it past
+            // the layout pass this now-visible view still needs to run —
+            // requesting focus in the same frame as setVisibility(VISIBLE)
+            // is unreliable coming from a GONE state.
+            installHelpContinueBtn.post(() -> installHelpContinueBtn.requestFocus());
             return;
         }
         launchInstaller(apkFile);
