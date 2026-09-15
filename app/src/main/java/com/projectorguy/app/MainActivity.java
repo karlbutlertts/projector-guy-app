@@ -3,8 +3,10 @@ package com.projectorguy.app;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -30,10 +32,14 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -63,6 +69,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView updateStatusText;
     private View installHelpOverlay;
     private View installHelpContinueBtn;
+    private View installTipOverlay;
+    private View installTipContinueBtn;
     private boolean updateCheckStarted = false;
 
     // Set when installApk() has to send the user to the "install unknown
@@ -70,6 +78,23 @@ public class MainActivity extends AppCompatActivity {
     // automatically as soon as they come back, instead of leaving them to
     // figure out they need to relaunch the app and redo the whole flow.
     private File pendingUpdateApk = null;
+
+    // Same idea as pendingUpdateApk, but for a split-APK bundle (see
+    // installSplitApks()) — kept as a separate field since the two flows
+    // resume into different installers (single ACTION_VIEW vs a
+    // PackageInstaller session) once the user comes back from Settings.
+    private List<File> pendingUpdateSplitApks = null;
+
+    // Set whenever installTipOverlay is showing, so its Continue button (or
+    // onResume(), coming back from the unknown-sources settings screen)
+    // knows what to actually launch the installer on. A single-file install
+    // is just a one-element list.
+    private List<File> pendingInstallApks = null;
+
+    // Set right before session.commit() in launchMultiInstaller(), so
+    // onNewIntent() knows which files to offer for retry if the commit
+    // reports back a genuine failure.
+    private List<File> currentMultiInstallApks = null;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -86,6 +111,19 @@ public class MainActivity extends AppCompatActivity {
         installHelpOverlay = findViewById(R.id.installHelpOverlay);
         installHelpContinueBtn = findViewById(R.id.installHelpContinueBtn);
         installHelpContinueBtn.setOnClickListener(v -> goToUnknownSourcesSettings());
+        installTipOverlay = findViewById(R.id.installTipOverlay);
+        installTipContinueBtn = findViewById(R.id.installTipContinueBtn);
+        installTipContinueBtn.setOnClickListener(v -> {
+            List<File> apks = pendingInstallApks;
+            pendingInstallApks = null;
+            installTipOverlay.setVisibility(View.GONE);
+            if (apks == null || apks.isEmpty()) return;
+            if (apks.size() == 1) {
+                launchInstaller(apks.get(0));
+            } else {
+                launchMultiInstaller(apks);
+            }
+        });
 
         // Make sure the WebView can receive D-pad/remote focus and key events
         webView.setFocusable(true);
@@ -415,7 +453,33 @@ public class MainActivity extends AppCompatActivity {
             installHelpContinueBtn.post(() -> installHelpContinueBtn.requestFocus());
             return;
         }
-        launchInstaller(apkFile);
+        showInstallTip(apkFile);
+    }
+
+    /**
+     * Shown right before every install (new app or update) so the fix for the
+     * most common failure — a same-named app already on the projector — is
+     * already in front of people. For a single-file install there's no way
+     * to detect that failure after the fact, hence showing it up front; for
+     * a split-APK install (see launchMultiInstaller()) we actually do get a
+     * failure callback, and re-show this same screen when that happens so
+     * they can delete the old app and hit Install again.
+     */
+    private void showInstallTip(File apkFile) {
+        List<File> single = new ArrayList<>();
+        single.add(apkFile);
+        showInstallTip(single);
+    }
+
+    private void showInstallTip(List<File> apkFiles) {
+        pendingInstallApks = apkFiles;
+        updateOverlay.setVisibility(View.GONE);
+        installHelpOverlay.setVisibility(View.GONE);
+        installTipOverlay.setVisibility(View.VISIBLE);
+        // Same deferred-focus-request pattern as installHelpContinueBtn — the
+        // remote's OK button won't reach a freshly-VISIBLE view until after
+        // its layout pass, so requesting focus in the same frame is unreliable.
+        installTipContinueBtn.post(() -> installTipContinueBtn.requestFocus());
     }
 
     private void goToUnknownSourcesSettings() {
@@ -443,22 +507,211 @@ public class MainActivity extends AppCompatActivity {
         hideUpdateOverlay();
     }
 
+    // ───────────────────────────────────────────────────────────────────────
+    //  SPLIT-APK STORE DOWNLOADS
+    //
+    //  Called from AndroidBridge.downloadAppSplits() for an app that ships as
+    //  a base APK plus arch/locale/density splits instead of one file. A lone
+    //  split isn't installable by itself — Android only accepts them together
+    //  in one atomic PackageInstaller session — so unlike the single-file
+    //  path above, these all get downloaded first, then installed as a unit.
+    // ───────────────────────────────────────────────────────────────────────
+
+    public void startSplitAppDownload(String urlsJson, String displayName) {
+        if (updateOverlay.getVisibility() == View.VISIBLE) return; // something's already downloading
+        updateStatusText.setText("Downloading " + displayName + "…");
+        updateOverlay.setVisibility(View.VISIBLE);
+        new Thread(() -> downloadAndInstallSplits(urlsJson, displayName), "app-download-splits").start();
+    }
+
+    private void downloadAndInstallSplits(String urlsJson, String label) {
+        List<String> urls = new ArrayList<>();
+        try {
+            JSONArray arr = new JSONArray(urlsJson);
+            for (int i = 0; i < arr.length(); i++) urls.add(arr.getString(i));
+        } catch (Exception e) {
+            Log.w(TAG, "Bad split URL list for " + label + ": " + e.getMessage());
+            runOnUiThread(() -> {
+                updateStatusText.setText("Download failed");
+                updateOverlay.postDelayed(this::hideUpdateOverlay, 1500);
+            });
+            return;
+        }
+
+        File dir = new File(getCacheDir(), "updates/splits");
+        if (!dir.exists()) dir.mkdirs();
+        List<File> outFiles = new ArrayList<>();
+        try {
+            for (int i = 0; i < urls.size(); i++) {
+                String url = urls.get(i);
+                String name = new File(Uri.parse(url).getPath()).getName();
+                if (name.isEmpty()) name = "split_" + i + ".apk";
+                File out = new File(dir, name);
+                downloadOneSplitFile(url, out, i + 1, urls.size(), label);
+                outFiles.add(out);
+            }
+            runOnUiThread(() -> installSplitApks(outFiles));
+        } catch (Exception e) {
+            Log.w(TAG, "Split download failed for " + label + ": " + e.getMessage());
+            for (File f : outFiles) if (f.exists()) f.delete();
+            runOnUiThread(() -> {
+                updateStatusText.setText("Download failed");
+                updateOverlay.postDelayed(this::hideUpdateOverlay, 1500);
+            });
+        }
+    }
+
+    private void downloadOneSplitFile(String apkUrl, File out, int index, int total, String label) throws Exception {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(apkUrl).openConnection();
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(30000);
+            long size = conn.getContentLengthLong();
+
+            InputStream in = conn.getInputStream();
+            FileOutputStream fos = new FileOutputStream(out);
+            byte[] buf = new byte[65536];
+            long received = 0;
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                fos.write(buf, 0, n);
+                received += n;
+                if (size > 0) {
+                    int pct = (int) (received * 100 / size);
+                    runOnUiThread(() -> updateStatusText.setText(
+                            "Downloading " + label + " (" + index + "/" + total + ")… " + pct + "%"));
+                }
+            }
+            fos.flush();
+            fos.close();
+            in.close();
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private void installSplitApks(List<File> apkFiles) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
+            pendingUpdateSplitApks = apkFiles;
+            updateOverlay.setVisibility(View.GONE);
+            installHelpOverlay.setVisibility(View.VISIBLE);
+            installHelpContinueBtn.post(() -> installHelpContinueBtn.requestFocus());
+            return;
+        }
+        showInstallTip(apkFiles);
+    }
+
+    /**
+     * Installs a base APK + splits together in one atomic PackageInstaller
+     * session — the only way Android will accept a lone split at all. Unlike
+     * the single-file ACTION_VIEW path, committing a session DOES report back
+     * whether it actually succeeded (see onNewIntent()), so a genuine failure
+     * re-shows installTipOverlay with the same files ready to retry, rather
+     * than just hoping the up-front tip was enough.
+     */
+    private void launchMultiInstaller(List<File> apkFiles) {
+        currentMultiInstallApks = apkFiles;
+        try {
+            PackageInstaller installer = getPackageManager().getPackageInstaller();
+            PackageInstaller.SessionParams params =
+                    new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+            int sessionId = installer.createSession(params);
+            PackageInstaller.Session session = installer.openSession(sessionId);
+            try {
+                for (File apk : apkFiles) {
+                    try (InputStream in = new FileInputStream(apk);
+                         OutputStream out = session.openWrite(apk.getName(), 0, apk.length())) {
+                        byte[] buf = new byte[65536];
+                        int n;
+                        while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                        session.fsync(out);
+                    }
+                }
+
+                Intent callbackIntent = new Intent(this, MainActivity.class);
+                int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) piFlags |= PendingIntent.FLAG_MUTABLE;
+                PendingIntent pendingIntent = PendingIntent.getActivity(this, sessionId, callbackIntent, piFlags);
+
+                updateStatusText.setText("Installing…");
+                updateOverlay.setVisibility(View.VISIBLE);
+                session.commit(pendingIntent.getIntentSender());
+            } finally {
+                session.close();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Multi-APK install session failed: " + e.getMessage());
+            hideUpdateOverlay();
+            showInstallTip(apkFiles);
+        }
+    }
+
+    /**
+     * PackageInstaller reports a committed session's outcome by relaunching
+     * the PendingIntent passed to session.commit() — for a getActivity()
+     * PendingIntent targeting this (singleTask) activity, that means a call
+     * here rather than a fresh onCreate(). STATUS_PENDING_USER_ACTION carries
+     * the system's own install-confirmation screen to show; anything else is
+     * the final result.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent == null || !intent.hasExtra(PackageInstaller.EXTRA_STATUS)) return;
+
+        int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+        String message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
+
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            Intent confirmIntent = intent.getParcelableExtra(Intent.EXTRA_INTENT);
+            if (confirmIntent != null) {
+                confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivitySafely(confirmIntent);
+            }
+            return;
+        }
+
+        if (status == PackageInstaller.STATUS_SUCCESS) {
+            currentMultiInstallApks = null;
+            updateStatusText.setText("Installed");
+            updateOverlay.setVisibility(View.VISIBLE);
+            updateOverlay.postDelayed(this::hideUpdateOverlay, 1500);
+            return;
+        }
+
+        Log.w(TAG, "Split install failed (status=" + status + "): " + message);
+        hideUpdateOverlay();
+        // We actually know this failed, unlike the single-file install path —
+        // re-show the tip with the same files so Install just works after
+        // they've deleted whatever's conflicting, no need to redownload.
+        if (currentMultiInstallApks != null) {
+            showInstallTip(currentMultiInstallApks);
+            currentMultiInstallApks = null;
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        // Deliberately NOT re-checking canRequestPackageInstalls() here. On
+        // this firmware it can still report the old "denied" result for a
+        // moment right after returning from Settings, even though the toggle
+        // already shows as on — which was forcing users to flip it off/on
+        // again just to get our cached read to catch up. The system
+        // installer does its own authoritative permission check regardless,
+        // so just hand off to it directly and let it be the judge (it shows
+        // its own blocked-install prompt if the permission genuinely isn't
+        // granted).
         if (pendingUpdateApk != null) {
             File apk = pendingUpdateApk;
             pendingUpdateApk = null;
-            // Deliberately NOT re-checking canRequestPackageInstalls() here.
-            // On this firmware it can still report the old "denied" result
-            // for a moment right after returning from Settings, even though
-            // the toggle already shows as on — which was forcing users to
-            // flip it off/on again just to get our cached read to catch up.
-            // The system installer does its own authoritative permission
-            // check regardless, so just hand off to it directly and let it
-            // be the judge (it shows its own blocked-install prompt if the
-            // permission genuinely isn't granted).
-            launchInstaller(apk);
+            showInstallTip(apk);
+        } else if (pendingUpdateSplitApks != null) {
+            List<File> apks = pendingUpdateSplitApks;
+            pendingUpdateSplitApks = null;
+            showInstallTip(apks);
         }
     }
 
@@ -469,6 +722,11 @@ public class MainActivity extends AppCompatActivity {
             // exactly the screen where someone's likely to reach for Back.
             installHelpOverlay.setVisibility(View.GONE);
             pendingUpdateApk = null;
+            pendingUpdateSplitApks = null;
+            hideUpdateOverlay();
+        } else if (installTipOverlay != null && installTipOverlay.getVisibility() == View.VISIBLE) {
+            installTipOverlay.setVisibility(View.GONE);
+            pendingInstallApks = null;
             hideUpdateOverlay();
         } else if (webView != null && webView.canGoBack()) {
             webView.goBack();

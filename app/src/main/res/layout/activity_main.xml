@@ -144,4 +144,113 @@
                 android:elevation="6dp" />
         </LinearLayout>
     </ScrollView>
+
+    <!-- Shown right before every install (new app or update), regardless of
+         whether the unknown-sources permission was needed. There's no way
+         to detect a failed install from here — Android hands the whole
+         install off to its own installer with no result callback — so
+         instead of reacting to a failure we can't see, this gets the fix
+         in front of people up front: if a same-named app is already on the
+         projector and blocks the install, deleting it first is the way out. -->
+    <ScrollView
+        android:id="@+id/installTipOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/xbj_bg"
+        android:visibility="gone"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="48dp">
+
+            <ImageView
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:background="@drawable/badge_rounded_bg"
+                android:padding="16dp"
+                android:src="@drawable/xbj_icon"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:text="Installing an update?"
+                android:textColor="#ffffff"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:gravity="center"
+                android:text="If this app is already on your projector and the install doesn't complete, it just needs deleting first:"
+                android:textColor="@color/xbj_text2"
+                android:textSize="18sp"
+                android:lineSpacingExtra="4dp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/back_chip_bg"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1 · 2 · 3"
+                    android:textColor="@color/xbj_accent"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="Home Screen → hold the app's icon → Delete"
+                    android:textColor="#ffffff"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Then come back here and tap Install again."
+                android:textColor="@color/xbj_text2"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/installTipContinueBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="36dp"
+                android:minWidth="220dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                android:paddingStart="36dp"
+                android:paddingEnd="36dp"
+                android:background="@drawable/btn_primary_bg"
+                android:text="Install"
+                android:textAllCaps="false"
+                android:textColor="@color/xbj_accent_ink"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:elevation="6dp" />
+        </LinearLayout>
+    </ScrollView>
 </FrameLayout>

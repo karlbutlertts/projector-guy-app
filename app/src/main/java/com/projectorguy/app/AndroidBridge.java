@@ -104,6 +104,22 @@ public class AndroidBridge {
         }
     }
 
+    /**
+     * Called by the store page for apps that ship as a split APK bundle
+     * (base + arch/locale/density splits) instead of one file — urlsJson is
+     * a JSON array of download URLs, e.g. ["…/base.apk","…/split_en.apk"].
+     * Downloads all of them, then installs them together in a single atomic
+     * PackageInstaller session rather than one-by-one — a standalone split
+     * APK isn't installable on its own outside of that session.
+     */
+    @JavascriptInterface
+    public void downloadAppSplits(String urlsJson, String displayName) {
+        if (context instanceof MainActivity) {
+            MainActivity activity = (MainActivity) context;
+            activity.runOnUiThread(() -> activity.startSplitAppDownload(urlsJson, displayName));
+        }
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     //  USB DETECTION
     // ───────────────────────────────────────────────────────────────────────
