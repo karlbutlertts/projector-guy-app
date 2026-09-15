@@ -114,6 +114,9 @@ public class MainActivity extends AppCompatActivity {
         installTipOverlay = findViewById(R.id.installTipOverlay);
         installTipContinueBtn = findViewById(R.id.installTipContinueBtn);
         installTipContinueBtn.setOnClickListener(v -> {
+            // Disabled immediately so a double-tap can't fire this twice —
+            // re-enabled in showInstallTip() next time this screen is shown.
+            installTipContinueBtn.setEnabled(false);
             List<File> apks = pendingInstallApks;
             pendingInstallApks = null;
             installTipOverlay.setVisibility(View.GONE);
@@ -383,8 +386,25 @@ public class MainActivity extends AppCompatActivity {
     //  on top of the WebView, and lands on the system install prompt directly.
     // ───────────────────────────────────────────────────────────────────────
 
+    /**
+     * True while any of the download/install overlays are up — from the
+     * moment a download starts through to the tip screen and the actual
+     * install. Guards startAppDownload()/startSplitAppDownload() against a
+     * duplicate call: once the flow moves on from updateOverlay to
+     * installTipOverlay, updateOverlay alone reports GONE, so a stray tap
+     * that reaches the WebView underneath (still showing the same app tile
+     * behind the overlay) could otherwise kick off a second, overlapping
+     * download of the same app — which is exactly what a split-APK install
+     * looked like it was doing after tapping Install.
+     */
+    private boolean installFlowBusy() {
+        return updateOverlay.getVisibility() == View.VISIBLE
+                || installHelpOverlay.getVisibility() == View.VISIBLE
+                || installTipOverlay.getVisibility() == View.VISIBLE;
+    }
+
     public void startAppDownload(String url, String displayName) {
-        if (updateOverlay.getVisibility() == View.VISIBLE) return; // something's already downloading
+        if (installFlowBusy()) return; // something's already downloading/installing
         String rawSafeName = displayName.replaceAll("[^a-zA-Z0-9.]+", "_");
         final String safeName = rawSafeName.toLowerCase().endsWith(".apk") ? rawSafeName : rawSafeName + ".apk";
         updateStatusText.setText("Downloading " + displayName + "…");
@@ -476,6 +496,7 @@ public class MainActivity extends AppCompatActivity {
         updateOverlay.setVisibility(View.GONE);
         installHelpOverlay.setVisibility(View.GONE);
         installTipOverlay.setVisibility(View.VISIBLE);
+        installTipContinueBtn.setEnabled(true);
         // Same deferred-focus-request pattern as installHelpContinueBtn — the
         // remote's OK button won't reach a freshly-VISIBLE view until after
         // its layout pass, so requesting focus in the same frame is unreliable.
@@ -518,7 +539,7 @@ public class MainActivity extends AppCompatActivity {
     // ───────────────────────────────────────────────────────────────────────
 
     public void startSplitAppDownload(String urlsJson, String displayName) {
-        if (updateOverlay.getVisibility() == View.VISIBLE) return; // something's already downloading
+        if (installFlowBusy()) return; // something's already downloading/installing
         updateStatusText.setText("Downloading " + displayName + "…");
         updateOverlay.setVisibility(View.VISIBLE);
         new Thread(() -> downloadAndInstallSplits(urlsJson, displayName), "app-download-splits").start();
