@@ -703,14 +703,25 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Log.w(TAG, "Split install failed (status=" + status + "): " + message);
-        hideUpdateOverlay();
-        // We actually know this failed, unlike the single-file install path —
-        // re-show the tip with the same files so Install just works after
-        // they've deleted whatever's conflicting, no need to redownload.
-        if (currentMultiInstallApks != null) {
-            showInstallTip(currentMultiInstallApks);
-            currentMultiInstallApks = null;
-        }
+        final List<File> retryApks = currentMultiInstallApks;
+        currentMultiInstallApks = null;
+        // Show the actual PackageInstaller status/message on screen for a
+        // few seconds before falling back to the tip — this is temporary
+        // diagnostic instrumentation while we're still tracking down why
+        // STV Player/ITVX fail to install, not the final copy.
+        updateStatusText.setText("Install failed (status " + status + "): " + message);
+        updateOverlay.setVisibility(View.VISIBLE);
+        updateOverlay.postDelayed(() -> {
+            // We actually know this failed, unlike the single-file install
+            // path — re-show the tip with the same files so Install just
+            // works after they've deleted whatever's conflicting, no need
+            // to redownload.
+            if (retryApks != null) {
+                showInstallTip(retryApks);
+            } else {
+                hideUpdateOverlay();
+            }
+        }, 5000);
     }
 
     @Override
