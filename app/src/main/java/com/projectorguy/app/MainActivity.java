@@ -91,6 +91,16 @@ public class MainActivity extends AppCompatActivity {
     // is just a one-element list.
     private List<File> pendingInstallApks = null;
 
+    // Set right before handing off to the system installer in
+    // launchInstaller(), so onResume() knows we're coming back from that —
+    // as opposed to a fresh cold launch, where onResume() fires too but
+    // must NOT touch updateOverlay (it's legitimately showing "Checking
+    // for updates…" at that point). Acts as a safety net in case
+    // hideUpdateOverlay() didn't fully take effect before the installer's
+    // activity took over the screen, which could otherwise leave our own
+    // popup visible when the user is returned to the app.
+    private boolean awaitingInstallerReturn = false;
+
     // Set right before session.commit() in launchMultiInstaller(), so
     // onNewIntent() knows which files to offer for retry if the commit
     // reports back a genuine failure.
@@ -525,6 +535,7 @@ public class MainActivity extends AppCompatActivity {
             updateOverlay.postDelayed(this::hideUpdateOverlay, 2000);
             return;
         }
+        awaitingInstallerReturn = true;
         hideUpdateOverlay();
     }
 
@@ -744,6 +755,13 @@ public class MainActivity extends AppCompatActivity {
             List<File> apks = pendingUpdateSplitApks;
             pendingUpdateSplitApks = null;
             showInstallTip(apks);
+        } else if (awaitingInstallerReturn) {
+            // Back from the system installer with nothing left pending —
+            // make sure no popup of ours is still showing over the store
+            // page, in case hideUpdateOverlay() didn't fully render before
+            // the installer's activity took over the screen.
+            awaitingInstallerReturn = false;
+            hideUpdateOverlay();
         }
     }
 
