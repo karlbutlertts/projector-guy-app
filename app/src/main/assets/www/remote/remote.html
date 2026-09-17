@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#070a11">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="XBJ Remote">
+    <meta name="description" content="Control your XBJ A5 Pro projector — D-pad, power, volume, focus, and streaming app hotkeys">
+    <title>XBJ Remote Control</title>
+    <link rel="manifest" href="manifest-remote.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%235aa6ff' width='192' height='192' rx='48'/><rect x='36' y='24' width='120' height='144' rx='18' fill='none' stroke='%23fff' stroke-width='8'/><circle cx='96' cy='48' r='8' fill='%23fff'/><rect x='60' y='72' width='72' height='56' rx='8' fill='none' stroke='%23fff' stroke-width='6'/><circle cx='96' cy='136' r='8' fill='%23fff'/></svg>">
+    <style>
+        * {
+            margin:0; padding:0; box-sizing:border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            background: linear-gradient(135deg, #070a11 0%, #0f1318 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .remote-container {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .remote-section {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 26px;
+            padding: 32px 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .remote-section h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 28px;
+            text-align: center;
+        }
+
+        .remote-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .power-button {
+            grid-column: 1 / -1;
+            aspect-ratio: 3;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border: none;
+            border-radius: 18px;
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .power-button:active {
+            transform: scale(0.95);
+        }
+
+        .dpad {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 12px 0;
+            aspect-ratio: 1;
+        }
+
+        .dpad-empty {
+            background: transparent;
+        }
+
+        .dpad-button {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+        }
+
+        .dpad-button:active {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+            transform: scale(0.9);
+        }
+
+        .center-button {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .hotkeys {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .hotkey-button {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, rgba(96, 165, 250, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            border-radius: 16px;
+            color: #60a5fa;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px;
+        }
+
+        .hotkey-button:active {
+            background: linear-gradient(135deg, rgba(96, 165, 250, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+            transform: scale(0.95);
+        }
+
+        .controls {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .control-button {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(147, 51, 234, 0.05) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 16px;
+            color: #a855f7;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px;
+        }
+
+        .control-button:active {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(147, 51, 234, 0.1) 100%);
+            transform: scale(0.95);
+        }
+
+        .status {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 16px;
+            min-height: 20px;
+        }
+
+        .status.success {
+            color: #4ade80;
+        }
+
+        .status.error {
+            color: #f87171;
+        }
+
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <button class="back-button" onclick="goHome()">←</button>
+
+    <div class="remote-container">
+        <!-- QR Code Section -->
+        <div class="remote-section" id="qrSection" style="text-align: center; padding: 24px; margin-bottom: 20px;">
+            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px;">📱 Save to Home Screen</div>
+            <div id="qrCode" style="display: inline-block; padding: 16px; background: white; border-radius: 16px;"></div>
+            <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 12px;">Scan to add remote to your phone</div>
+        </div>
+
+        <div class="remote-section">
+            <h2>XBJ A5 Pro Remote</h2>
+
+            <div class="remote-grid">
+                <!-- Power -->
+                <button class="power-button" onclick="sendCommand('power')">⏻ Power</button>
+
+                <!-- D-Pad -->
+                <div class="dpad">
+                    <div class="dpad-empty"></div>
+                    <button class="dpad-button" onclick="sendCommand('up')">↑</button>
+                    <div class="dpad-empty"></div>
+
+                    <button class="dpad-button" onclick="sendCommand('left')">←</button>
+                    <button class="dpad-button center-button" onclick="sendCommand('ok')">OK</button>
+                    <button class="dpad-button" onclick="sendCommand('right')">→</button>
+
+                    <div class="dpad-empty"></div>
+                    <button class="dpad-button" onclick="sendCommand('down')">↓</button>
+                    <div class="dpad-empty"></div>
+                </div>
+
+                <!-- Hotkeys -->
+                <div class="hotkeys">
+                    <button class="hotkey-button" onclick="sendCommand('netflix')">Netflix</button>
+                    <button class="hotkey-button" onclick="sendCommand('disney')">Disney+</button>
+                    <button class="hotkey-button" onclick="sendCommand('youtube')">YouTube</button>
+                    <button class="hotkey-button" onclick="sendCommand('prime')">Prime</button>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls">
+                    <button class="control-button" onclick="sendCommand('volumeDown')">🔊−</button>
+                    <button class="control-button" onclick="sendCommand('menu')">≡ Menu</button>
+                    <button class="control-button" onclick="sendCommand('volumeUp')">🔊+</button>
+                    <button class="control-button" onclick="sendCommand('focusDown')">F−</button>
+                    <button class="control-button" onclick="sendCommand('pause')">⏸</button>
+                    <button class="control-button" onclick="sendCommand('focusUp')">F+</button>
+                </div>
+
+                <div class="status" id="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        // Prefer this device's own LAN address (served by the app's embedded
+        // Remote server) over window.location.href — a phone can't fetch()
+        // that server's plain-HTTP endpoint from this page's HTTPS origin
+        // (mixed-content blocking), so the link/QR must point at the LAN copy.
+        function getShareUrl() {
+            if (window.AndroidBridge && typeof window.AndroidBridge.getLocalRemoteUrl === 'function') {
+                const url = window.AndroidBridge.getLocalRemoteUrl();
+                if (url) return url;
+            }
+            return window.location.href;
+        }
+
+        // Generate QR code for this page
+        function generateQR() {
+            const url = getShareUrl();
+            const qrElement = document.getElementById('qrCode');
+            if (qrElement && qrElement.children.length === 0) {
+                new QRCode(qrElement, {
+                    text: url,
+                    width: 200,
+                    height: 200,
+                    colorDark: '#000000',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+        }
+
+        // Register service worker for offline support. No explicit scope —
+        // this page is served from two different roots (GitHub Pages at
+        // /xbj-apk-store/, or the app's local LAN server at /), and an
+        // explicit scope only matches one of them.
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker-remote.js')
+                .then(reg => console.log('Remote SW registered'))
+                .catch(err => console.warn('Remote SW registration failed:', err));
+        }
+
+        function goHome() {
+            window.history.back();
+        }
+
+        async function sendCommand(command) {
+            const status = document.getElementById('status');
+            status.className = 'status';
+            status.textContent = '⏳ Sending...';
+
+            try {
+                let result;
+                if (typeof window.AndroidBridge !== 'undefined') {
+                    // Running inside the Projector Guy app's own WebView.
+                    result = window.AndroidBridge.sendProjectorCommand('local', command);
+                } else {
+                    // Running on a phone, loaded from the app's local LAN
+                    // server — same-origin fetch, so no CORS/mixed-content issue.
+                    const response = await fetch('/command?cmd=' + encodeURIComponent(command));
+                    result = (await response.text()).trim();
+                }
+
+                if (result === 'ok') {
+                    status.textContent = '✓ ' + command;
+                    status.className = 'status success';
+                } else {
+                    status.textContent = '✗ Failed: ' + command;
+                    status.className = 'status error';
+                }
+
+                console.log('Command result:', command, result);
+
+                setTimeout(() => {
+                    status.className = 'status';
+                    status.textContent = '';
+                }, 2000);
+            } catch (err) {
+                status.textContent = '✗ Error: ' + err.message;
+                status.className = 'status error';
+                console.error('Command failed:', err);
+            }
+        }
+
+        // Show status on load and generate QR code
+        window.addEventListener('load', () => {
+            // Generate QR code
+            generateQR();
+
+            // Show connection status
+            if (typeof window.AndroidBridge !== 'undefined') {
+                const status = document.getElementById('status');
+                status.textContent = '✓ Connected to projector';
+                status.className = 'status success';
+                setTimeout(() => {
+                    status.className = 'status';
+                    status.textContent = '';
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>

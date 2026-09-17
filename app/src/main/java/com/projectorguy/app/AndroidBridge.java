@@ -5,9 +5,11 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONArray;
@@ -25,7 +27,14 @@ import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.URL;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -523,7 +532,7 @@ public class AndroidBridge {
                 conn = openFollowing(u.toString());
             }
 
-            long total = conn.getContentLengthLong();
+            long total = Build.VERSION.SDK_INT >= 24 ? conn.getContentLengthLong() : conn.getContentLength();
             prog[1] = total;
 
             InputStream in = conn.getInputStream();
@@ -745,5 +754,107 @@ public class AndroidBridge {
     @JavascriptInterface
     public boolean applyPicturePreset(String preset) {
         return PictureModeBridge.applyPreset(context, preset);
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    //  XBJ REMOTE CONTROL — see remote.html and LocalRemoteServer.
+    // ───────────────────────────────────────────────────────────────────────
+
+    private static final Map<String, Integer> COMMAND_KEYEVENTS = new HashMap<>();
+    static {
+        COMMAND_KEYEVENTS.put("up", KeyEvent.KEYCODE_DPAD_UP);
+        COMMAND_KEYEVENTS.put("down", KeyEvent.KEYCODE_DPAD_DOWN);
+        COMMAND_KEYEVENTS.put("left", KeyEvent.KEYCODE_DPAD_LEFT);
+        COMMAND_KEYEVENTS.put("right", KeyEvent.KEYCODE_DPAD_RIGHT);
+        COMMAND_KEYEVENTS.put("ok", KeyEvent.KEYCODE_DPAD_CENTER);
+        COMMAND_KEYEVENTS.put("power", KeyEvent.KEYCODE_POWER);
+        COMMAND_KEYEVENTS.put("menu", KeyEvent.KEYCODE_MENU);
+        COMMAND_KEYEVENTS.put("volumeUp", KeyEvent.KEYCODE_VOLUME_UP);
+        COMMAND_KEYEVENTS.put("volumeDown", KeyEvent.KEYCODE_VOLUME_DOWN);
+        COMMAND_KEYEVENTS.put("pause", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+    }
+
+    // NOTE: package names below are the standard ones for these apps' Android
+    // TV builds; not verified against what's actually installed on the XBJ
+    // A5 Pro. If a hotkey reports "fail" in practice, check the real package
+    // name via listActivities()/apps.json rather than assuming these are wrong.
+    private static final Map<String, String> HOTKEY_PACKAGES = new HashMap<>();
+    static {
+        HOTKEY_PACKAGES.put("netflix", "com.netflix.ninja");
+        HOTKEY_PACKAGES.put("disney", "com.disney.disneyplus");
+        HOTKEY_PACKAGES.put("prime", "com.amazon.amazonvideo.livingroom");
+        HOTKEY_PACKAGES.put("youtube", "com.google.android.youtube.tv");
+    }
+
+    /**
+     * Entry point for the Remote Control page (remote.html): dispatches
+     * D-pad/power/volume/menu key events and launches streaming-app hotkeys.
+     * Called directly when remote.html runs in this app's own WebView, and
+     * internally by LocalRemoteServer when a phone loads it over the LAN
+     * instead. Returns "ok" or "fail" (remote.html checks for exactly "ok").
+     *
+     * focusUp/focusDown are not implemented — there is no known vendor API
+     * for driving the XBJ A5 Pro's motorized lens focus from software, so
+     * those two commands always report failure rather than silently doing
+     * nothing while claiming success.
+     */
+    @JavascriptInterface
+    public String sendProjectorCommand(String target, String command) {
+        if (command == null) return "fail";
+        try {
+            String hotkeyPackage = HOTKEY_PACKAGES.get(command);
+            if (hotkeyPackage != null) {
+                return launchApp(hotkeyPackage) ? "ok" : "fail";
+            }
+            Integer keyCode = COMMAND_KEYEVENTS.get(command);
+            if (keyCode != null) {
+                return injectKeyEvent(keyCode) ? "ok" : "fail";
+            }
+            Log.w(TAG, "sendProjectorCommand: unsupported command '" + command + "'");
+            return "fail";
+        } catch (Exception e) {
+            Log.e(TAG, "sendProjectorCommand failed for '" + command + "': " + e.getMessage());
+            return "fail";
+        }
+    }
+
+    /**
+     * Injects a key event system-wide via "input keyevent", the same
+     * privileged-shell pattern formatUsbFat32() uses — requires the su
+     * binary this firmware exposes.
+     */
+    private boolean injectKeyEvent(int keyCode) {
+        return runAsRoot("input keyevent " + keyCode) == 0;
+    }
+
+    /**
+     * This device's own LAN address for the embedded Remote Control server
+     * (e.g. "http://192.168.1.42:8899/remote.html"), or null if no WiFi/
+     * Ethernet IPv4 address is currently up. remote.html uses this to build
+     * a QR code/link a phone can actually reach — a phone can't fetch() this
+     * server's plain-HTTP endpoint from the GitHub-hosted HTTPS copy of this
+     * page (mixed-content blocking), so the shareable link must point here.
+     */
+    @JavascriptInterface
+    public String getLocalRemoteUrl() {
+        String ip = getLocalIpAddress();
+        if (ip == null) return null;
+        return "http://" + ip + ":" + LocalRemoteServer.PORT + "/remote.html";
+    }
+
+    private String getLocalIpAddress() {
+        try {
+            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!ni.isUp() || ni.isLoopback()) continue;
+                for (InetAddress addr : Collections.list(ni.getInetAddresses())) {
+                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            Log.e(TAG, "getLocalIpAddress failed: " + e.getMessage());
+        }
+        return null;
     }
 }

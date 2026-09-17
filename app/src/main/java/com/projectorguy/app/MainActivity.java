@@ -67,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
             "https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/apks/";
 
     private WebView webView;
+    private LocalRemoteServer localRemoteServer;
     private View updateOverlay;
     private TextView updateStatusText;
     private View installHelpOverlay;
@@ -165,7 +166,14 @@ public class MainActivity extends AppCompatActivity {
         s.setUserAgentString(s.getUserAgentString() + " ProjectorGuyApp/1.0");
 
         // Expose native bridge to JavaScript as window.AndroidBridge
-        webView.addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
+        AndroidBridge androidBridge = new AndroidBridge(this);
+        webView.addJavascriptInterface(androidBridge, "AndroidBridge");
+
+        // Serves the Remote Control page to phones over the LAN — see
+        // LocalRemoteServer's class comment for why it can't just point
+        // phones at the GitHub-hosted copy of remote.html.
+        localRemoteServer = new LocalRemoteServer(this, androidBridge);
+        localRemoteServer.start();
 
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient());
@@ -438,7 +446,7 @@ public class MainActivity extends AppCompatActivity {
             conn = (HttpURLConnection) new URL(apkUrl).openConnection();
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(30000);
-            long total = conn.getContentLengthLong();
+            long total = Build.VERSION.SDK_INT >= 24 ? conn.getContentLengthLong() : conn.getContentLength();
 
             InputStream in = conn.getInputStream();
             FileOutputStream fos = new FileOutputStream(out);
@@ -632,7 +640,7 @@ public class MainActivity extends AppCompatActivity {
             conn = (HttpURLConnection) new URL(apkUrl).openConnection();
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(30000);
-            long size = conn.getContentLengthLong();
+            long size = Build.VERSION.SDK_INT >= 24 ? conn.getContentLengthLong() : conn.getContentLength();
 
             InputStream in = conn.getInputStream();
             FileOutputStream fos = new FileOutputStream(out);
@@ -766,6 +774,12 @@ public class MainActivity extends AppCompatActivity {
                 hideUpdateOverlay();
             }
         }, 5000);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (localRemoteServer != null) localRemoteServer.stop();
+        super.onDestroy();
     }
 
     @Override
