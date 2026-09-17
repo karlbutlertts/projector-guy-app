@@ -1,5 +1,7 @@
 package com.projectorguy.app;
 
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -101,6 +103,10 @@ public class MainActivity extends AppCompatActivity {
     // popup visible when the user is returned to the app.
     private boolean awaitingInstallerReturn = false;
 
+    // Running pulse animation on installTipContinueBtn, so it's clear which
+    // button to press without needing to move the remote/finger first.
+    private ObjectAnimator installTipPulseAnimator;
+
     // Set right before session.commit() in launchMultiInstaller(), so
     // onNewIntent() knows which files to offer for retry if the commit
     // reports back a genuine failure.
@@ -127,6 +133,7 @@ public class MainActivity extends AppCompatActivity {
             // Disabled immediately so a double-tap can't fire this twice —
             // re-enabled in showInstallTip() next time this screen is shown.
             installTipContinueBtn.setEnabled(false);
+            stopInstallTipPulse();
             List<File> apks = pendingInstallApks;
             pendingInstallApks = null;
             installTipOverlay.setVisibility(View.GONE);
@@ -511,6 +518,32 @@ public class MainActivity extends AppCompatActivity {
         // remote's OK button won't reach a freshly-VISIBLE view until after
         // its layout pass, so requesting focus in the same frame is unreliable.
         installTipContinueBtn.post(() -> installTipContinueBtn.requestFocus());
+        startInstallTipPulse();
+    }
+
+    /**
+     * Gently scales installTipContinueBtn up and down forever, on top of its
+     * existing focus ring, so it reads as "press this" at a glance instead of
+     * relying on the focus ring alone.
+     */
+    private void startInstallTipPulse() {
+        stopInstallTipPulse();
+        installTipPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(installTipContinueBtn,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.08f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.08f));
+        installTipPulseAnimator.setDuration(700);
+        installTipPulseAnimator.setRepeatMode(ObjectAnimator.REVERSE);
+        installTipPulseAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+        installTipPulseAnimator.start();
+    }
+
+    private void stopInstallTipPulse() {
+        if (installTipPulseAnimator != null) {
+            installTipPulseAnimator.cancel();
+            installTipPulseAnimator = null;
+        }
+        installTipContinueBtn.setScaleX(1f);
+        installTipContinueBtn.setScaleY(1f);
     }
 
     private void goToUnknownSourcesSettings() {
@@ -776,6 +809,7 @@ public class MainActivity extends AppCompatActivity {
             hideUpdateOverlay();
         } else if (installTipOverlay != null && installTipOverlay.getVisibility() == View.VISIBLE) {
             installTipOverlay.setVisibility(View.GONE);
+            stopInstallTipPulse();
             pendingInstallApks = null;
             hideUpdateOverlay();
         } else if (webView != null && webView.canGoBack()) {
