@@ -38,6 +38,15 @@
         <package android:name="com.newlink.service" />
         <package android:name="com.zhiying.settings" />
         <package android:name="com.android.tv.settings" />
+
+        <!-- Visibility for XBJ Remote Control's streaming-app hotkeys —
+             without these, getLaunchIntentForPackage() returns null for an
+             installed-but-undeclared package under Android 11+ package
+             visibility, indistinguishable from the app not being installed. -->
+        <package android:name="com.netflix.mediaclient" />
+        <package android:name="com.disney.disneyplus" />
+        <package android:name="com.amazon.amazonvideo.livingroom" />
+        <package android:name="com.google.android.youtube.tv" />
     </queries>
 
     <application

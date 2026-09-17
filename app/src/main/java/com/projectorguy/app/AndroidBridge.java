@@ -9,7 +9,6 @@ import android.os.Build;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONArray;
@@ -394,12 +393,18 @@ public class AndroidBridge {
     }
 
     /**
-     * Runs a shell command as root via "su -c", waits for it to finish and
-     * returns its exit code, or -1 if "su" itself couldn't be executed.
+     * Runs a shell command as root, waits for it to finish and returns its
+     * exit code, or -1 if "su" itself couldn't be executed.
+     *
+     * This firmware's /system/xbin/su is a minimal toybox-style binary —
+     * "su [WHO [COMMAND...]]", not the SuperSU/Magisk "su -c COMMAND" form —
+     * so "su -c command" fails outright ("invalid uid/gid '-c'"). Confirmed
+     * against a real device (pioneer5_sdp_lr) that "su root sh -c command"
+     * is what this su actually accepts.
      */
     private int runAsRoot(String command) {
         try {
-            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", command});
+            Process p = Runtime.getRuntime().exec(new String[]{"su", "root", "sh", "-c", command});
             return p.waitFor();
         } catch (Exception e) {
             Log.e(TAG, "runAsRoot failed (" + command + "): " + e.getMessage());
@@ -409,10 +414,10 @@ public class AndroidBridge {
 
     /**
      * Formats the mounted USB drive to FAT32. Uses mkfs.fat (falls back to
-     * newfs_msdos), running as root via "su -c" since this firmware exposes a
-     * working su binary over adb/shell. Falls back to running the commands
-     * unprivileged if su is unavailable. Returns true on success, false on
-     * failure. WIPES ALL DATA on the drive.
+     * newfs_msdos), running as root via runAsRoot() since this firmware
+     * exposes a working su binary over adb/shell. Falls back to running the
+     * commands unprivileged if su is unavailable. Returns true on success,
+     * false on failure. WIPES ALL DATA on the drive.
      */
     @JavascriptInterface
     public boolean formatUsbFat32() {
@@ -694,11 +699,18 @@ public class AndroidBridge {
      * Launches a package's normal launcher activity (if it has one).
      * Returns false if the package has no launcher (common for factory/hidden
      * menu apps) — use listActivities()/launchActivity() instead in that case.
+     *
+     * Falls back to the TV-specific leanback launcher intent if the package
+     * has no regular CATEGORY_LAUNCHER activity — confirmed on-device that
+     * Prime Video (com.amazon.amazonvideo.livingroom) only declares
+     * CATEGORY_LEANBACK_LAUNCHER, which getLaunchIntentForPackage() doesn't
+     * match, making an installed app look exactly like it wasn't found.
      */
     @JavascriptInterface
     public boolean launchApp(String packageName) {
         PackageManager pm = context.getPackageManager();
         Intent intent = pm.getLaunchIntentForPackage(packageName);
+        if (intent == null) intent = pm.getLeanbackLaunchIntentForPackage(packageName);
         if (intent == null) return false;
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return startActivitySafely(intent, packageName);
@@ -757,46 +769,40 @@ public class AndroidBridge {
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    //  XBJ REMOTE CONTROL — see remote.html and LocalRemoteServer.
+    //  XBJ REMOTE CONTROL — see remote.html, LocalRemoteServer and
+    //  ProjectorControlBridge (which explains why this isn't just
+    //  "input keyevent" — that needs INJECT_EVENTS, which this app's UID
+    //  can't get, root or not, on this firmware).
     // ───────────────────────────────────────────────────────────────────────
 
-    private static final Map<String, Integer> COMMAND_KEYEVENTS = new HashMap<>();
-    static {
-        COMMAND_KEYEVENTS.put("up", KeyEvent.KEYCODE_DPAD_UP);
-        COMMAND_KEYEVENTS.put("down", KeyEvent.KEYCODE_DPAD_DOWN);
-        COMMAND_KEYEVENTS.put("left", KeyEvent.KEYCODE_DPAD_LEFT);
-        COMMAND_KEYEVENTS.put("right", KeyEvent.KEYCODE_DPAD_RIGHT);
-        COMMAND_KEYEVENTS.put("ok", KeyEvent.KEYCODE_DPAD_CENTER);
-        COMMAND_KEYEVENTS.put("power", KeyEvent.KEYCODE_POWER);
-        COMMAND_KEYEVENTS.put("menu", KeyEvent.KEYCODE_MENU);
-        COMMAND_KEYEVENTS.put("volumeUp", KeyEvent.KEYCODE_VOLUME_UP);
-        COMMAND_KEYEVENTS.put("volumeDown", KeyEvent.KEYCODE_VOLUME_DOWN);
-        COMMAND_KEYEVENTS.put("pause", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
-    }
-
-    // NOTE: package names below are the standard ones for these apps' Android
-    // TV builds; not verified against what's actually installed on the XBJ
-    // A5 Pro. If a hotkey reports "fail" in practice, check the real package
-    // name via listActivities()/apps.json rather than assuming these are wrong.
+    // Verified against a real A5 Pro (pioneer5_sdp_lr) via `pm list packages`.
+    // Netflix is com.netflix.mediaclient here, NOT com.netflix.ninja — the
+    // latter is what apps.json's store catalogue lists, which is either a
+    // different Netflix build or simply stale; don't copy from there blind.
     private static final Map<String, String> HOTKEY_PACKAGES = new HashMap<>();
     static {
-        HOTKEY_PACKAGES.put("netflix", "com.netflix.ninja");
+        HOTKEY_PACKAGES.put("netflix", "com.netflix.mediaclient");
         HOTKEY_PACKAGES.put("disney", "com.disney.disneyplus");
         HOTKEY_PACKAGES.put("prime", "com.amazon.amazonvideo.livingroom");
         HOTKEY_PACKAGES.put("youtube", "com.google.android.youtube.tv");
     }
 
     /**
-     * Entry point for the Remote Control page (remote.html): dispatches
-     * D-pad/power/volume/menu key events and launches streaming-app hotkeys.
-     * Called directly when remote.html runs in this app's own WebView, and
-     * internally by LocalRemoteServer when a phone loads it over the LAN
-     * instead. Returns "ok" or "fail" (remote.html checks for exactly "ok").
+     * Entry point for the Remote Control page (remote.html). Called directly
+     * when remote.html runs in this app's own WebView, and internally by
+     * LocalRemoteServer when a phone loads it over the LAN instead. Returns
+     * "ok" or "fail" (remote.html checks for exactly "ok").
      *
-     * focusUp/focusDown are not implemented — there is no known vendor API
-     * for driving the XBJ A5 Pro's motorized lens focus from software, so
-     * those two commands always report failure rather than silently doing
-     * nothing while claiming success.
+     * up/down/left/right/ok/menu/pause are NOT implemented and never will be
+     * without vendor sign-off: they need system-wide key injection
+     * (INJECT_EVENTS), which on this firmware only the vendor's own
+     * system-signed NewLinkAccessibilityService holds — confirmed by
+     * decompiling it (sharedUserId="android.uid.system"). Root doesn't help:
+     * /system/xbin/su is mode 750 root:shell, so this app's own UID gets
+     * EACCES just trying to exec "su", before su's own permission model even
+     * enters into it. There's no vendor command-set fallback for these
+     * either (checked every CMD_ID_EX_CUS_* in NLProjector.jar). These
+     * commands report failure honestly rather than silently doing nothing.
      */
     @JavascriptInterface
     public String sendProjectorCommand(String target, String command) {
@@ -806,25 +812,37 @@ public class AndroidBridge {
             if (hotkeyPackage != null) {
                 return launchApp(hotkeyPackage) ? "ok" : "fail";
             }
-            Integer keyCode = COMMAND_KEYEVENTS.get(command);
-            if (keyCode != null) {
-                return injectKeyEvent(keyCode) ? "ok" : "fail";
+            switch (command) {
+                case "power":
+                    return ProjectorControlBridge.sleep(context) ? "ok" : "fail";
+                case "focusUp":
+                    return ProjectorControlBridge.pulseFocusMotor(context, true) ? "ok" : "fail";
+                case "focusDown":
+                    return ProjectorControlBridge.pulseFocusMotor(context, false) ? "ok" : "fail";
+                case "volumeUp":
+                    return adjustVolume(true) ? "ok" : "fail";
+                case "volumeDown":
+                    return adjustVolume(false) ? "ok" : "fail";
+                default:
+                    Log.w(TAG, "sendProjectorCommand: unsupported command '" + command + "'");
+                    return "fail";
             }
-            Log.w(TAG, "sendProjectorCommand: unsupported command '" + command + "'");
-            return "fail";
         } catch (Exception e) {
             Log.e(TAG, "sendProjectorCommand failed for '" + command + "': " + e.getMessage());
             return "fail";
         }
     }
 
-    /**
-     * Injects a key event system-wide via "input keyevent", the same
-     * privileged-shell pattern formatUsbFat32() uses — requires the su
-     * binary this firmware exposes.
-     */
-    private boolean injectKeyEvent(int keyCode) {
-        return runAsRoot("input keyevent " + keyCode) == 0;
+    /** Adjusts system media volume — no special permission needed for this one. */
+    private boolean adjustVolume(boolean up) {
+        android.media.AudioManager audio =
+                (android.media.AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) return false;
+        audio.adjustStreamVolume(
+                android.media.AudioManager.STREAM_MUSIC,
+                up ? android.media.AudioManager.ADJUST_RAISE : android.media.AudioManager.ADJUST_LOWER,
+                android.media.AudioManager.FLAG_SHOW_UI);
+        return true;
     }
 
     /**
