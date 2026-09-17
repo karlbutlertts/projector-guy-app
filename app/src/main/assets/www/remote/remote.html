@@ -220,6 +220,15 @@
             <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 12px;">Scan to add remote to your phone</div>
         </div>
 
+        <!-- Shown only if D-pad/OK need Accessibility enabling -->
+        <div id="a11yWarning" style="display:none; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:16px; padding:16px 18px; margin-bottom:20px; font-size:13px; line-height:1.5;">
+            D-pad and OK need <b>Projector Guy</b> enabled once under <b>Settings → Accessibility</b> on the projector.
+            <div style="margin-top:10px;">
+                <button id="a11ySettingsBtn" onclick="openAccessibilitySettings()" style="display:none; background:#5aa6ff; color:#070a11; border:none; border-radius:999px; padding:8px 16px; font-weight:600; font-size:13px; cursor:pointer;">Open Settings</button>
+                <span id="a11yPhoneHint" style="display:none; color:rgba(255,255,255,0.6);">Enable it on the projector's own screen, then reload this page.</span>
+            </div>
+        </div>
+
         <div class="remote-section">
             <h2>XBJ A5 Pro Remote</h2>
 
@@ -347,10 +356,39 @@
             }
         }
 
+        function openAccessibilitySettings() {
+            if (window.AndroidBridge && typeof window.AndroidBridge.openSettingsAction === 'function') {
+                window.AndroidBridge.openSettingsAction('android.settings.ACCESSIBILITY_SETTINGS');
+            }
+        }
+
+        async function checkAccessibility() {
+            try {
+                let result;
+                if (typeof window.AndroidBridge !== 'undefined') {
+                    result = window.AndroidBridge.sendProjectorCommand('local', 'checkAccessibility');
+                } else {
+                    const response = await fetch('/command?cmd=checkAccessibility');
+                    result = (await response.text()).trim();
+                }
+                if (result !== 'ok') {
+                    document.getElementById('a11yWarning').style.display = 'block';
+                    if (typeof window.AndroidBridge !== 'undefined') {
+                        document.getElementById('a11ySettingsBtn').style.display = 'inline-block';
+                    } else {
+                        document.getElementById('a11yPhoneHint').style.display = 'inline';
+                    }
+                }
+            } catch (err) {
+                console.warn('checkAccessibility failed:', err);
+            }
+        }
+
         // Show status on load and generate QR code
         window.addEventListener('load', () => {
             // Generate QR code
             generateQR();
+            checkAccessibility();
 
             // Show connection status
             if (typeof window.AndroidBridge !== 'undefined') {

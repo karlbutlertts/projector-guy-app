@@ -793,16 +793,22 @@ public class AndroidBridge {
      * LocalRemoteServer when a phone loads it over the LAN instead. Returns
      * "ok" or "fail" (remote.html checks for exactly "ok").
      *
-     * up/down/left/right/ok/menu/pause are NOT implemented and never will be
-     * without vendor sign-off: they need system-wide key injection
+     * up/down/left/right/ok move real input focus / click via
+     * RemoteAccessibilityService — see its class comment for how and why.
+     * That needs the user to manually enable "Projector Guy" once under
+     * Settings > Accessibility; sendProjectorCommand reports "fail" until
+     * they do, rather than pretending it worked.
+     *
+     * menu/pause are NOT implemented and likely never will be without
+     * vendor sign-off: they need system-wide key injection
      * (INJECT_EVENTS), which on this firmware only the vendor's own
      * system-signed NewLinkAccessibilityService holds — confirmed by
      * decompiling it (sharedUserId="android.uid.system"). Root doesn't help:
      * /system/xbin/su is mode 750 root:shell, so this app's own UID gets
      * EACCES just trying to exec "su", before su's own permission model even
      * enters into it. There's no vendor command-set fallback for these
-     * either (checked every CMD_ID_EX_CUS_* in NLProjector.jar). These
-     * commands report failure honestly rather than silently doing nothing.
+     * either (checked every CMD_ID_EX_CUS_* in NLProjector.jar), and no
+     * accessibility action corresponds to a generic "menu" press either.
      */
     @JavascriptInterface
     public String sendProjectorCommand(String target, String command) {
@@ -823,6 +829,18 @@ public class AndroidBridge {
                     return adjustVolume(true) ? "ok" : "fail";
                 case "volumeDown":
                     return adjustVolume(false) ? "ok" : "fail";
+                case "up":
+                    return RemoteAccessibilityService.moveFocus(RemoteAccessibilityService.DIRECTION_UP) ? "ok" : "fail";
+                case "down":
+                    return RemoteAccessibilityService.moveFocus(RemoteAccessibilityService.DIRECTION_DOWN) ? "ok" : "fail";
+                case "left":
+                    return RemoteAccessibilityService.moveFocus(RemoteAccessibilityService.DIRECTION_LEFT) ? "ok" : "fail";
+                case "right":
+                    return RemoteAccessibilityService.moveFocus(RemoteAccessibilityService.DIRECTION_RIGHT) ? "ok" : "fail";
+                case "ok":
+                    return RemoteAccessibilityService.activateFocused() ? "ok" : "fail";
+                case "checkAccessibility":
+                    return RemoteAccessibilityService.isConnected() ? "ok" : "fail";
                 default:
                     Log.w(TAG, "sendProjectorCommand: unsupported command '" + command + "'");
                     return "fail";

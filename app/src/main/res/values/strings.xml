@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Projector Guy</string>
     <string name="picture_preset_activity_name">Picture Presets</string>
+    <string name="remote_accessibility_service_description">Lets XBJ Remote Control move focus and select items on screen, so the D-pad and OK buttons work like your physical remote.</string>
 </resources>

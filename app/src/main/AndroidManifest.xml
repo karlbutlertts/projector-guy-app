@@ -98,6 +98,24 @@
             </intent-filter>
         </activity>
 
+        <!-- Lets XBJ Remote Control move focus/click via the accessibility
+             node tree — see RemoteAccessibilityService's class comment for
+             why this is the mechanism (no root/system-signing needed) and
+             what it can and can't reach. Requires the user to manually
+             enable it once under Settings > Accessibility. -->
+        <service
+            android:name=".RemoteAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/remote_accessibility_service" />
+        </service>
+
         <!-- Exposes the cached update APK to the system package installer -->
         <provider
             android:name="androidx.core.content.FileProvider"
