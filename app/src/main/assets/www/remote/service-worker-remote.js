@@ -1,4 +1,4 @@
-const CACHE_NAME = 'xbj-remote-v1';
+const CACHE_NAME = 'xbj-remote-v2';
 const ASSETS_TO_CACHE = [
   './remote.html',
   './manifest-remote.json'
@@ -52,6 +52,12 @@ self.addEventListener('fetch', event => {
           return new Response(null, { status: 0 });
         })
     );
+    return;
+  }
+
+  // Cache only remote UI files. The main app and version manifest must stay fresh.
+  if (url.origin !== self.location.origin ||
+      !['remote.html', 'manifest-remote.json'].includes(url.pathname.split('/').pop())) {
     return;
   }
 

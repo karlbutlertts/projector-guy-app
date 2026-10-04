@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Projector Guy — Tutorials</title>
+<style>
+  :root{
+    --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c27;
+    --blue:#3b6ff5; --orange:#f97316; --green:#22c87a; --pink:#e040fb;
+    --text:#f4f4f8; --text2:#9aa0b0; --text3:#5a6070;
+    --border:#262634;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"DM Sans",sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:18px 16px 60px}
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .back{
+    background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:8px 12px;font-size:14px;cursor:pointer;font-family:inherit;
+  }
+  .back:active{transform:scale(.97)}
+  .model-pill{
+    font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
+    background:rgba(90,166,255,0.15);border:1px solid rgba(90,166,255,0.35);
+    color:#5aa6ff;border-radius:999px;padding:5px 12px;white-space:nowrap;
+  }
+  .title-lg{font-size:22px;font-weight:700;margin:4px 0 2px}
+  .sub{color:var(--text2);font-size:14px;line-height:1.5;margin-bottom:20px}
+
+  /* ── Filter pills ── */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+  .filter-btn{
+    background:var(--surface2);border:1px solid var(--border);color:var(--text2);
+    border-radius:999px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:background 0.15s,border-color 0.15s,color 0.15s;
+  }
+  .filter-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+  .filter-btn:active{transform:scale(.97)}
+
+  /* ── Tutorial cards ── */
+  .grid{display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:560px){.grid{grid-template-columns:1fr 1fr}}
+  @media(min-width:900px){.grid{grid-template-columns:1fr 1fr 1fr};.wrap{padding:28px 32px 80px}}
+
+  .tcard{
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    overflow:hidden;display:flex;flex-direction:column;
+    transition:transform 0.15s,border-color 0.15s;
+  }
+  .tcard:hover{transform:translateY(-3px);border-color:rgba(90,166,255,0.4)}
+
+  .tcard-thumb{
+    width:100%;aspect-ratio:16/9;background:var(--surface2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:48px;position:relative;overflow:hidden;
+  }
+  .tcard-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;top:0;left:0;right:0;bottom:0}
+  .tcard-play{
+    position:absolute;inset:0;top:0;left:0;right:0;bottom:0;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.35);
+  }
+  .tcard-play-btn{
+    width:52px;height:52px;background:rgba(255,255,255,0.92);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .tcard-play-btn svg{width:22px;height:22px;fill:#0a0a0f;margin-left:3px}
+
+  .tcard-body{padding:14px 16px 16px;flex:1;display:flex;flex-direction:column;gap:8px}
+  .tcard-meta{display:flex;align-items:center;gap:8px}
+  .tcard-platform{
+    font-size:10px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;
+    border-radius:999px;padding:3px 9px;
+  }
+  .platform-tiktok{background:rgba(255,0,80,0.15);color:#ff3855;border:1px solid rgba(255,0,80,0.3)}
+  .platform-youtube{background:rgba(255,0,0,0.12);color:#ff4444;border:1px solid rgba(255,0,0,0.25)}
+  .platform-video{background:rgba(34,200,122,0.12);color:#22c87a;border:1px solid rgba(34,200,122,0.3)}
+  .tcard-thumb-video{aspect-ratio:unset;background:none}
+  .tcard-video{width:100%;display:block;border-radius:0;background:#000}
+  .tcard-model-tag{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em}
+  .tcard-title{font-weight:700;font-size:14.5px;line-height:1.4;color:var(--text);flex:1}
+  .tcard-desc{font-size:12.5px;color:var(--text2);line-height:1.5}
+  .tcard-btn{
+    display:block;text-align:center;background:var(--blue);color:#fff;
+    border-radius:12px;padding:10px;font-size:14px;font-weight:700;
+    text-decoration:none;margin-top:auto;
+    transition:opacity 0.15s;
+  }
+  .tcard-btn:active{opacity:0.8}
+
+  .empty{
+    text-align:center;padding:60px 20px;color:var(--text2);
+    grid-column:1/-1;
+  }
+  .empty-icon{font-size:48px;margin-bottom:12px}
+  .empty p{font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="back" onclick="goBack()">← Back to Menu</button>
+    <span class="model-pill" id="modelPill">All models</span>
+  </div>
+
+  <h1 class="title-lg">🎬 Tutorials</h1>
+  <div class="sub">Step-by-step video guides. Tap a card to watch on TikTok or YouTube.</div>
+
+  <div class="filters" id="filters"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const MODEL_LABELS = { a5pro: 'XBJ A5 Pro', '360': 'XBJ 360', other: 'Other', all: 'All models' };
+const TUTORIALS_URL = 'https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/tutorials.json?nc=' + Date.now();
+
+const params = new URLSearchParams(location.search);
+const pageModel = params.get('model') || 'all';
+let activeFilter = pageModel === 'all' ? 'all' : pageModel;
+let allTutorials = [];
+
+document.getElementById('modelPill').textContent = MODEL_LABELS[pageModel] || 'All models';
+
+function goBack() {
+  location.href = 'index.html';
+}
+
+function matchesFilter(t) {
+  if (activeFilter === 'all') return true;
+  return t.model === activeFilter || t.model === 'all';
+}
+
+function renderFilters(tutorials) {
+  const models = ['all', ...new Set(tutorials.filter(t => t.model !== 'all').map(t => t.model))];
+  const container = document.getElementById('filters');
+  container.innerHTML = '';
+  models.forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn' + (m === activeFilter ? ' active' : '');
+    btn.textContent = MODEL_LABELS[m] || m;
+    btn.onclick = () => { activeFilter = m; renderFilters(allTutorials); renderGrid(); };
+    container.appendChild(btn);
+  });
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  const filtered = allTutorials.filter(matchesFilter);
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🎬</div><p>No tutorials yet for this model.<br>Check back soon — Karl adds new ones regularly!</p></div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(t => {
+    const isVideo = t.platform === 'video';
+    const platformClass = t.platform === 'youtube' ? 'platform-youtube' : isVideo ? 'platform-video' : 'platform-tiktok';
+    const platformLabel = t.platform === 'youtube' ? 'YouTube' : isVideo ? 'Video' : 'TikTok';
+    const modelTag = t.model === 'all' ? 'All models' : (MODEL_LABELS[t.model] || t.model);
+
+    const mediaHtml = isVideo
+      ? `<video class="tcard-video" src="${t.url}" controls playsinline preload="metadata"></video>`
+      : t.thumbnail
+        ? `<img src="${t.thumbnail}" alt="" loading="lazy"><div class="tcard-play"><div class="tcard-play-btn"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>`
+        : `<span>🎬</span>`;
+
+    const actionHtml = isVideo
+      ? ''
+      : `<a class="tcard-btn" href="${t.url}" target="_blank" rel="noopener">Watch on ${platformLabel} →</a>`;
+
+    return `
+      <div class="tcard">
+        <div class="tcard-thumb ${isVideo ? 'tcard-thumb-video' : ''}">${mediaHtml}</div>
+        <div class="tcard-body">
+          <div class="tcard-meta">
+            <span class="tcard-platform ${platformClass}">${platformLabel}</span>
+            <span class="tcard-model-tag">${modelTag}</span>
+          </div>
+          <div class="tcard-title">${t.title}</div>
+          ${t.description ? `<div class="tcard-desc">${t.description}</div>` : ''}
+          ${actionHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+fetch(TUTORIALS_URL)
+  .then(r => r.json())
+  .then(data => {
+    allTutorials = data;
+    renderFilters(data);
+    renderGrid();
+  })
+  .catch(() => {
+    document.getElementById('grid').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><p>Couldn't load tutorials right now.<br>Check your internet connection and try again.</p></div>`;
+  });
+</script>
+</body>
+</html>

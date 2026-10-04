@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Projector Guy — Engineering Tools</title>
+<style>
+  :root{
+    --bg:#0a0a0f; --surface:#13131a; --surface2:#1c1c27;
+    --blue:#3b6ff5; --orange:#f97316; --green:#22c87a;
+    --text:#f4f4f8; --muted:#9aa0b0;
+    --border:#262634;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"DM Sans",sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .wrap{max-width:900px;margin:0 auto;padding:18px 16px 48px;min-height:100vh}
+  .topbar{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .back{
+    background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:8px 12px;font-size:14px;cursor:pointer;
+  }
+  .back:active{transform:scale(.97)}
+  .title-lg{font-size:22px;font-weight:700;margin:4px 0 2px}
+  .sub{color:var(--muted);font-size:14px;line-height:1.5}
+  .model-badge{
+    display:inline-flex;align-items:center;gap:6px;margin-top:10px;
+    background:rgba(90,166,255,0.14);color:var(--blue);border:1px solid rgba(90,166,255,0.3);
+    border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;
+  }
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:16px;margin:14px 0;
+  }
+  .card.amber{border-color:rgba(249,115,22,.5);background:rgba(249,115,22,.07)}
+  .card-title{font-weight:700;font-size:16px;margin-bottom:6px}
+  .card-body{color:var(--muted);font-size:13.5px;line-height:1.55}
+
+  .web-warning{display:none}
+  .native-only{display:none}
+  body.native .web-warning{display:none}
+  body.native .native-only{display:block}
+  body:not(.native) .native-only{display:none}
+  body:not(.native) .web-warning{display:block}
+
+  /* ── Tile carousel ── */
+  .carousel-wrap{ position:relative; margin:22px -16px 0; }
+  .carousel-label{ font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 12px 16px; }
+  .carousel{
+    display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x proximity;
+    padding:6px 16px 16px; -webkit-overflow-scrolling:touch; scroll-behavior:smooth;
+    scrollbar-width:none;
+  }
+  .carousel::-webkit-scrollbar{ display:none; }
+  .tool-tile{
+    scroll-snap-align:center;
+    flex:0 0 168px;
+    background:var(--surface); border:1.5px solid var(--border); border-radius:22px;
+    padding:20px 14px 16px; display:flex; flex-direction:column; align-items:center; text-align:center;
+    cursor:pointer; color:inherit; font-family:inherit; outline:none; position:relative;
+    transition:transform .15s cubic-bezier(.2,.8,.3,1.4), border-color .15s ease, box-shadow .2s ease, background .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .tool-tile:hover, .tool-tile:focus-visible, .tool-tile.focused{
+    border-color:var(--blue); background:rgba(90,166,255,0.08);
+    box-shadow:0 0 0 3px rgba(90,166,255,.35); transform:translateY(-3px) scale(1.05);
+  }
+  .tool-tile:active{ transform:scale(.96); }
+  .tool-icon{
+    width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+    font-size:28px;background:var(--surface2);margin-bottom:12px;flex-shrink:0;
+  }
+  .tool-title{ font-weight:700;font-size:14px;line-height:1.3;margin-bottom:5px;min-height:2.6em;display:flex;align-items:center;justify-content:center; }
+  .tool-sub{ font-size:11px;color:var(--muted);line-height:1.4; }
+  .tool-badge{
+    position:absolute; top:10px; right:10px; font-size:9.5px; font-weight:800;
+    padding:2px 7px; border-radius:999px; letter-spacing:.03em; text-transform:uppercase;
+  }
+  .tool-badge.tested{ background:rgba(34,200,122,.16); color:var(--green); border:1px solid rgba(34,200,122,.4); }
+  .tool-badge.factory{ background:rgba(249,115,22,.16); color:var(--orange); border:1px solid rgba(249,115,22,.4); }
+  .carousel-empty{ color:var(--muted); font-size:13.5px; padding:10px 16px; }
+  .carousel-hint{ color:var(--muted); font-size:12px; margin:2px 16px 0; display:flex; align-items:center; gap:6px; }
+
+  /* ── Detail / result panel ── */
+  .detail-panel{ display:none; }
+  .detail-panel.show{ display:block; }
+  .status{font-size:12.5px;font-weight:600;margin-top:6px;min-height:16px}
+  .status.ok{color:var(--green)}
+  .status.err{color:#ff5a5a}
+
+  .activity-list{list-style:none;margin:10px 0 0;padding:0}
+  .activity-list li{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+    padding:9px 12px;margin-bottom:6px;font-size:12.5px;
+  }
+  .activity-list .name{word-break:break-all;flex:1}
+  .activity-list .disabled{opacity:.45}
+  .activity-list .badge{font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:1px 5px}
+
+  .btn{
+    display:inline-block;border:none;border-radius:14px;
+    padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;
+    transition:transform .1s ease, opacity .2s; font-family:inherit;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn-blue{background:var(--blue);color:#fff}
+  .btn-blue:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
+  .btn-sm{padding:8px 13px;font-size:12.5px;border-radius:10px}
+
+  .browse-row{display:flex;gap:8px;margin-top:6px}
+  .browse-row input{
+    flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:12px 14px;font-size:14px;font-family:inherit;outline:none;
+  }
+  .browse-row input:focus{border-color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button class="back" onclick="goBack()">← Back to Menu</button>
+  </div>
+
+  <h1 class="title-lg">🛠️ Engineering Tools</h1>
+  <div class="sub">Direct access to hidden factory menus, picture-quality (PQ) settings and system activities on your projector. For advanced users only — some menus can change low-level display calibration.</div>
+  <div class="model-badge" id="modelBadge">📽️ Showing tools for your projector</div>
+
+  <div class="card web-warning amber">
+    <div class="card-title">Native app required</div>
+    <div class="card-body">These shortcuts only work inside the Projector Guy app installed on your projector — they won't do anything in a regular web browser.</div>
+  </div>
+
+  <div class="native-only">
+    <div class="carousel-wrap">
+      <div class="carousel-label" id="carouselLabel">Tools &amp; settings</div>
+      <div class="carousel" id="toolsCarousel" tabindex="-1"></div>
+      <div class="carousel-hint">◀ ▶ on the remote to scroll · press OK to open a tile</div>
+    </div>
+
+    <div class="card detail-panel" id="detailPanel">
+      <div class="card-title" id="detailTitle"></div>
+      <div class="card-body" id="detailBody"></div>
+      <div class="browse-row" id="browseRow" style="display:none">
+        <input id="customPkg" type="text" placeholder="e.g. com.sstar.factorymenu" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="btn btn-blue btn-sm" onclick="browseCustom()">Browse</button>
+      </div>
+      <div class="status" id="detailStatus"></div>
+      <ul class="activity-list" id="detailList"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const NATIVE = !!(window.AndroidBridge && window.AndroidBridge.isUsbMounted);
+if (NATIVE) document.body.classList.add('native');
+
+function goBack(){
+  // Always go to index.html (not history.back()) so we land on the hub
+  // screen, even if bfcache would otherwise restore the app grid view.
+  location.href = 'index.html';
+}
+
+// ── Which projector model are we running on? ──
+// Prefer the ?model= query param (set by index.html's subHub links), fall
+// back to whatever selectModel() saved to localStorage/cookie, same as the
+// other model-aware pages (tutorials.html).
+const MODEL_LABELS = { a5pro: 'XBJ A5 Pro', '360': 'XBJ 360', other: 'your projector' };
+
+function detectModel(){
+  const fromQuery = new URLSearchParams(location.search).get('model');
+  if (fromQuery) return fromQuery;
+  try {
+    const ls = localStorage.getItem('xbj_model');
+    if (ls) return ls;
+  } catch (e) {}
+  const match = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('xbj_model='));
+  return match ? match.split('=')[1] : 'other';
+}
+
+const MODEL = detectModel();
+document.getElementById('modelBadge').textContent = '📽️ Showing tools for ' + (MODEL_LABELS[MODEL] || 'your projector');
+
+// ── Tool/setting catalog ──
+// "models" controls which tiles show for the detected projector. The a5pro
+// groups below are exact package/activity names confirmed via ADB on the
+// XBJ A5 Pro's firmware. The 360 entries are confirmed via ADB on the XBJ
+// 360's Allwinner/Android 14 firmware — a completely different chipset and
+// launcher (com.mylove.*), so none of the a5pro package names apply there.
+//
+// Deliberately NOT cataloged for the 360: com.softwinner.tv.factorymenu,
+// com.softwinner.dragonbox, com.softwinner.agingdragonbox and
+// com.bsw.producttest. These are genuine production-line test tools (panel
+// color-cycle tests, serial-number writing, hardware test suites with
+// result upload to a factory server) — one of them blanked the screen red
+// and required a power cycle to recover from. Not worth the risk of
+// surfacing to end users as a "hidden feature."
+const TILES = [
+  {
+    icon: '🔓', title: 'Unlock Theme Settings', sub: 'Opens the About page — press OK 6 times on your remote, we\'ll detect it live', tested: true,
+    models: ['360'], type: 'unlockDebug', pkg: 'com.mylove.setting', activity: '.ui.activity.AboutDeviceActivity', propKey: 'persist.sys.debug'
+  },
+  {
+    icon: '🎮', title: 'Enable Gaming Mode', sub: 'Opens Display & Sound — go to Advanced display settings and toggle "Allow game mode" on', tested: true,
+    models: ['a5pro'], type: 'activity', pkg: 'com.android.tv.settings', activity: '.device.displaysound.DisplaySoundActivity'
+  },
+  {
+    icon: '🎚️', title: 'Display & Sound', sub: 'Picture quality, EQ, keystone and video settings',
+    models: ['360'], type: 'group', children: [
+      {
+        icon: '🖼️', title: 'Display Mode', sub: 'Preset picture modes, plus brightness/contrast/saturation/hue/sharpness', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.DisplayModeActivity'
+      },
+      {
+        icon: '🔊', title: 'Sound Mode', sub: '7-band EQ (100Hz–16kHz), select User to unlock the sliders', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.SoundModeActivity'
+      },
+      {
+        icon: '📐', title: 'Keystone', sub: 'Correct a trapezoidal/skewed image', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.KeystoneActivity'
+      },
+      {
+        icon: '📹', title: 'Video Settings', sub: 'Additional video/source settings', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.VideoSettingsActivity'
+      }
+    ]
+  },
+  {
+    icon: '🎨', title: 'Picture & Sound Presets', sub: 'Jump straight to the picture/sound mode menus',
+    models: ['360'], type: 'group', children: [
+      {
+        icon: '✨', title: 'Vivid Picture', sub: 'Opens Display Mode — select Vivid for a brighter, punchier image', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.DisplayModeActivity'
+      },
+      {
+        icon: '🎬', title: 'Cinema Picture', sub: 'Opens Display Mode — select Cinema for movies in a dark room', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.DisplayModeActivity'
+      },
+      {
+        icon: '🔉', title: 'Clearer Sound', sub: 'Opens Sound Mode — select User, then raise the 2–8kHz bands for clarity', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.SoundModeActivity'
+      }
+    ]
+  },
+  {
+    icon: '🧰', title: 'System', sub: 'App manager & device info',
+    models: ['360'], type: 'group', children: [
+      {
+        icon: '📱', title: 'App Manager', sub: "This launcher's own app management screen", tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.AppManagerActivity'
+      },
+      {
+        icon: 'ℹ️', title: 'About Device', sub: 'Model, firmware & storage info', tested: true,
+        models: ['360'], type: 'activity', pkg: 'com.mylove.setting', activity: '.ui.activity.AboutDeviceActivity'
+      }
+    ]
+  },
+  {
+    icon: '🏭', title: 'Factory Menus', sub: 'Newlink & SStar factory + test-pattern menus',
+    models: ['a5pro'], type: 'group', children: [
+      {
+        icon: '📂', title: 'Newlink Factory Menu', sub: 'com.newlink.factorymenu', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.factorymenu', activity: '.MainActivity'
+      },
+      {
+        icon: '🔌', title: 'Newlink Board Test', sub: 'Board-level hardware test', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.factorymenu', activity: '.BoardActivity'
+      },
+      {
+        icon: '🔨', title: 'Newlink Tools', sub: 'Newlink engineering tools', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.factorymenu', activity: '.ToolsActivity'
+      },
+      {
+        icon: '🏷️', title: 'SStar Factory Menu', sub: 'com.sstar.factorymenu', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.sstar.factorymenu', activity: '.MainActivity'
+      },
+      {
+        icon: '🖼️', title: 'Test Patterns', sub: 'Panel/PQ test pattern generator', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.sstar.factorymenu', activity: '.TestPatternsActivity'
+      }
+    ]
+  },
+  {
+    icon: '🎚️', title: 'Display & Sound', sub: 'Autofocus, picture & manufacturer settings',
+    models: ['a5pro'], type: 'group', children: [
+      {
+        icon: '🎯', title: 'Autofocus', sub: 'com.zhiying.autofocus', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.zhiying.autofocus'
+      },
+      {
+        icon: '🖥️', title: 'System Control', sub: 'Display, output & hardware settings', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.sstar.systemcontrol'
+      },
+      {
+        icon: '🧠', title: 'Smart Hardware', sub: 'com.zhixin.smarthw', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.zhixin.smarthw'
+      },
+      {
+        icon: '🔧', title: 'Manufacturer Settings', sub: "This projector's custom TV settings app", tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.zhiying.settings'
+      }
+    ]
+  },
+  {
+    icon: '🎨', title: 'Picture Presets', sub: 'Jump straight to the picture mode menu',
+    models: ['a5pro'], type: 'group', children: [
+      {
+        icon: '🎬', title: 'Cinema', sub: 'Opens the picture mode menu — select Film for movies in a dark room',
+        models: ['a5pro'], type: 'activity', pkg: 'com.zhiying.settings', activity: '.picturemode.PictureModeActivity'
+      },
+      {
+        icon: '☀️', title: 'Bright Room', sub: 'Opens the picture mode menu — select Dynamic for daylight viewing',
+        models: ['a5pro'], type: 'activity', pkg: 'com.zhiying.settings', activity: '.picturemode.PictureModeActivity'
+      },
+      {
+        icon: '🎮', title: 'Gaming', sub: 'Opens the picture mode menu — select Game for lower input lag',
+        models: ['a5pro'], type: 'activity', pkg: 'com.zhiying.settings', activity: '.picturemode.PictureModeActivity'
+      }
+    ]
+  },
+  {
+    icon: '⚙️', title: 'Android Settings', sub: 'Standard system settings', tested: true,
+    models: ['all'], type: 'settingsAction', action: 'android.settings.SETTINGS'
+  },
+  {
+    icon: '📺', title: 'Android TV Settings', sub: 'MainSettings', tested: true,
+    models: ['all'], type: 'activity', pkg: 'com.android.tv.settings', activity: '.MainSettings'
+  },
+  {
+    icon: '♿', title: 'Accessibility', sub: 'Accessibility settings', tested: true,
+    models: ['all'], type: 'settingsAction', action: 'android.settings.ACCESSIBILITY_SETTINGS'
+  },
+  {
+    icon: '📱', title: 'App Info', sub: 'Application settings', tested: true,
+    models: ['all'], type: 'settingsAction', action: 'android.settings.APPLICATION_SETTINGS'
+  },
+  {
+    icon: '🧪', title: 'TV Testing Tools', sub: 'Production/PCBA hardware test suite',
+    models: ['a5pro'], type: 'group', children: [
+      {
+        icon: '🧪', title: 'Main Test Suite', sub: 'com.newlink.tvtestingtools', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.tvtestingtools', activity: '.acticity.MainActivity_main'
+      },
+      {
+        icon: '🔩', title: 'PCBA Test', sub: 'Board-level production test', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.tvtestingtools', activity: '.acticity.PCBAActivity'
+      },
+      {
+        icon: '⚙️', title: 'PCBA MTK Test', sub: 'MTK-chipset variant of the PCBA test', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.tvtestingtools', activity: '.acticity.PCBAActivity_MTK'
+      },
+      {
+        icon: '📡', title: 'BT Single Test', sub: 'Bluetooth hardware test', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.tvtestingtools', activity: '.acticity.BTSingleActivity'
+      },
+      {
+        icon: '👆', title: 'Touch Test', sub: 'Touch panel hardware test', tested: true,
+        models: ['a5pro'], type: 'activity', pkg: 'com.newlink.tvtestingtools', activity: '.acticity.TouchTestActivity'
+      }
+    ]
+  },
+  {
+    icon: '🧰', title: 'System', sub: 'Service management, OTA update & OEM menus',
+    models: ['a5pro'], type: 'group', children: [
+      {
+        icon: '🗂️', title: 'Service Management', sub: 'com.newlink.servicemanagement', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.newlink.servicemanagement'
+      },
+      {
+        icon: '🔄', title: 'OTA Update', sub: 'com.uv.droid.uota', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.uv.droid.uota'
+      },
+      {
+        icon: '🎛️', title: 'Customised Menu', sub: 'OEM settings on the SStar base firmware', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.sstar.customizedmenu'
+      },
+      {
+        icon: '🎞️', title: 'Projector Service', sub: 'Manages picture profiles', tested: true,
+        models: ['a5pro'], type: 'package', pkg: 'com.newlink.projector.service'
+      }
+    ]
+  },
+  {
+    icon: '🔍', title: 'Browse a Package', sub: 'Look up any app by package name', tested: true,
+    models: ['all'], type: 'browse'
+  }
+];
+
+const carouselEl = document.getElementById('toolsCarousel');
+const carouselLabel = document.getElementById('carouselLabel');
+const BACK_TILE = { icon: '⬅️', title: 'Back', sub: 'Return to Tools & settings', type: 'back' };
+
+// null = showing the top-level TILES; otherwise the group tile currently drilled into.
+let activeGroup = null;
+let visibleTiles = [];
+
+function renderCarousel(){
+  const source = activeGroup ? activeGroup.children : TILES;
+  const filtered = source.filter(t => t.models.includes('all') || t.models.includes(MODEL));
+  visibleTiles = activeGroup ? [BACK_TILE, ...filtered] : filtered;
+  carouselLabel.textContent = activeGroup ? activeGroup.title : 'Tools & settings';
+  carouselEl.innerHTML = '';
+  closeDetail();
+
+  if (!visibleTiles.length) {
+    carouselEl.innerHTML = '<div class="carousel-empty">No engineering tools are cataloged yet for this projector model.</div>';
+    return;
+  }
+
+  visibleTiles.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tool-tile';
+    b.dataset.index = i;
+    const badge = t.tested
+      ? '<div class="tool-badge tested">Tested</div>'
+      : (t.type === 'package' ? '<div class="tool-badge factory">Factory</div>' : '');
+    b.innerHTML = `
+      ${badge}
+      <div class="tool-icon">${t.icon}</div>
+      <div class="tool-title">${t.title}</div>
+      <div class="tool-sub">${t.sub}</div>
+    `;
+    b.addEventListener('click', () => openTile(t));
+    b.addEventListener('focus', () => b.classList.add('focused'));
+    b.addEventListener('blur', () => b.classList.remove('focused'));
+    carouselEl.appendChild(b);
+  });
+
+  // Land focus on the first tile so a remote can drive it immediately.
+  setTimeout(() => { const first = carouselEl.querySelector('.tool-tile'); if (first) first.focus(); }, 150);
+}
+
+// D-pad left/right moves focus between tiles and keeps the focused one
+// scrolled into view. Enter/OK on a focused <button> triggers its native
+// click event already, so no extra handling is needed for "select".
+document.addEventListener('keydown', e => {
+  if (!carouselEl.contains(document.activeElement)) return;
+  const isLeft = e.key === 'ArrowLeft' || e.keyCode === 37;
+  const isRight = e.key === 'ArrowRight' || e.keyCode === 39;
+  if (!isLeft && !isRight) return;
+
+  const tiles = Array.from(carouselEl.querySelectorAll('.tool-tile'));
+  if (!tiles.length) return;
+  e.preventDefault();
+
+  let idx = tiles.indexOf(document.activeElement);
+  if (idx < 0) idx = 0;
+  idx = isRight ? Math.min(idx + 1, tiles.length - 1) : Math.max(idx - 1, 0);
+  tiles[idx].focus();
+  tiles[idx].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+});
+
+// ── Detail panel (opened when a tile is selected) ──
+const detailPanel = document.getElementById('detailPanel');
+const detailTitle = document.getElementById('detailTitle');
+const detailBody = document.getElementById('detailBody');
+const detailStatus = document.getElementById('detailStatus');
+const detailList = document.getElementById('detailList');
+const browseRow = document.getElementById('browseRow');
+let currentBrowsePkg = null;
+
+let activePoll = null;
+
+function openDetail(title, body){
+  if (activePoll) { clearInterval(activePoll); activePoll = null; }
+  detailTitle.textContent = title;
+  detailBody.textContent = body || '';
+  detailStatus.textContent = '';
+  detailStatus.className = 'status';
+  detailList.innerHTML = '';
+  browseRow.style.display = 'none';
+  detailPanel.classList.add('show');
+}
+
+function closeDetail(){
+  detailPanel.classList.remove('show');
+}
+
+function setStatus(msg, ok){
+  detailStatus.className = 'status ' + (ok ? 'ok' : 'err');
+  detailStatus.textContent = msg;
+}
+
+function renderActivityList(pkg, activities){
+  detailList.innerHTML = '';
+  if (!activities.length) {
+    setStatus('No activities found — package may not be installed.', false);
+    return;
+  }
+  activities.forEach(a => {
+    const li = document.createElement('li');
+    if (!a.enabled) li.classList.add('disabled');
+    const shortName = a.name.startsWith(pkg) ? a.name.substring(pkg.length) : a.name;
+    li.innerHTML = `
+      <span class="name mono">${shortName}</span>
+      <span class="badge">${a.exported ? 'exported' : 'internal'}</span>
+      <button class="btn btn-blue btn-sm" onclick='launchActivity("${pkg}", ${JSON.stringify(a.name)})'>Launch</button>
+    `;
+    detailList.appendChild(li);
+  });
+  setStatus(`Found ${activities.length} activities. Tap one to launch.`, true);
+}
+
+function launchActivity(pkg, activity){
+  if (!NATIVE) return;
+  const ok = window.AndroidBridge.launchActivity(pkg, activity);
+  if (!ok) setStatus('Could not launch ' + activity + ' — it may require system permissions this app does not have.', false);
+}
+
+function openTile(t){
+  // Drilling in/out of a sub-section carousel works even in a plain browser
+  // preview — it's just navigating the catalog, no native call involved.
+  if (t.type === 'group') { activeGroup = t; renderCarousel(); return; }
+  if (t.type === 'back') { activeGroup = null; renderCarousel(); return; }
+
+  if (!NATIVE) {
+    openDetail(t.title, 'Native app required — this only works inside the Projector Guy app.');
+    return;
+  }
+
+  switch (t.type) {
+    case 'settingsAction': {
+      openDetail(t.title, t.sub);
+      const ok = window.AndroidBridge.openSettingsAction(t.action);
+      setStatus(ok ? 'Opening…' : 'Could not open — not available on this build.', ok);
+      break;
+    }
+    case 'activity': {
+      openDetail(t.title, t.sub);
+      const ok = window.AndroidBridge.launchActivity(t.pkg, t.activity);
+      setStatus(ok ? 'Opening…' : 'Could not open — not available on this build.', ok);
+      break;
+    }
+    case 'unlockDebug': {
+      openDetail(t.title, t.sub);
+      const ok = window.AndroidBridge.launchActivity(t.pkg, t.activity);
+      if (!ok) { setStatus('Could not open — not available on this build.', false); break; }
+      setStatus('Opened. Press OK 6 times on your remote now…', true);
+      let polls = 0;
+      const maxPolls = 90; // ~3 minutes at 2s
+      activePoll = setInterval(() => {
+        polls++;
+        let val = '';
+        try { val = window.AndroidBridge.getSystemProperty(t.propKey); } catch (e) {}
+        if (val === '1') {
+          clearInterval(activePoll); activePoll = null;
+          setStatus('✅ Unlocked! Now reboot your projector — the Theme Settings icon (the ? in a circle, top-right on the home screen) will appear once it restarts.', true);
+        } else if (polls >= maxPolls) {
+          clearInterval(activePoll); activePoll = null;
+          setStatus('Still not detected after 3 minutes — make sure you\'re pressing OK on the About page itself, 6 times.', false);
+        }
+      }, 2000);
+      break;
+    }
+    case 'package': {
+      openDetail(t.title, t.sub + ' — ' + t.pkg);
+      if (!window.AndroidBridge.isPackageInstalled(t.pkg)) {
+        setStatus('Package not found on this device.', false);
+        return;
+      }
+      if (window.AndroidBridge.launchApp(t.pkg)) {
+        setStatus('Launching…', true);
+        return;
+      }
+      // No normal launcher (typical for factory menus) — list its
+      // activities instead so the user can pick the right entry point.
+      let activities = [];
+      try { activities = JSON.parse(window.AndroidBridge.listActivities(t.pkg) || '[]'); } catch (e) {}
+      renderActivityList(t.pkg, activities);
+      break;
+    }
+    case 'browse': {
+      openDetail(t.title, 'Enter a package name to list its activities, then tap one to launch it directly.');
+      browseRow.style.display = 'flex';
+      setTimeout(() => { const inp = document.getElementById('customPkg'); if (inp) inp.focus(); }, 50);
+      break;
+    }
+  }
+}
+
+function browseCustom(){
+  const pkg = document.getElementById('customPkg').value.trim();
+  if (!pkg) { setStatus('Enter a package name first.', false); return; }
+  if (!NATIVE) { setStatus('Native app required.', false); return; }
+
+  currentBrowsePkg = pkg;
+  if (!window.AndroidBridge.isPackageInstalled(pkg)) {
+    setStatus('Package not found on this device.', false);
+    detailList.innerHTML = '';
+    return;
+  }
+  let activities = [];
+  try { activities = JSON.parse(window.AndroidBridge.listActivities(pkg) || '[]'); } catch (e) {}
+  renderActivityList(pkg, activities);
+}
+
+renderCarousel();
+</script>
+</body>
+</html>

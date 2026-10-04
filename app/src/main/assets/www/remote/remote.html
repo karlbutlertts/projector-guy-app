@@ -216,10 +216,13 @@
         <!-- QR Code Section -->
         <div class="remote-section" id="qrSection" style="text-align: center; padding: 24px; margin-bottom: 20px;">
             <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px;">📱 Save to Home Screen</div>
-            <div id="qrCode" style="display: inline-block; padding: 16px; background: white; border-radius: 16px;"></div>
-            <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 12px;">Scan to add remote to your phone</div>
+            <div id="shareLink" style="margin-bottom:12px;overflow-wrap:anywhere;"></div><div id="qrCode" style="display: inline-block; padding: 16px; background: white; border-radius: 16px;"></div>
+            <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 12px;">Scan to open the projector remote on your phone</div>
         </div>
 
+        <div id="vendorInfo" style="display:none;padding:16px;margin-bottom:20px;border:1px solid #5aa6ff;border-radius:16px;">
+            Scan the QR code above using a phone on the same Wi-Fi. On the projector's page, select <b>Mobile Remote Control</b>.
+        </div>
         <!-- Shown only if D-pad/OK need Accessibility enabling -->
         <div id="a11yWarning" style="display:none; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:16px; padding:16px 18px; margin-bottom:20px; font-size:13px; line-height:1.5;">
             D-pad and OK need <b>Projector Guy</b> enabled once under <b>Settings → Accessibility</b> on the projector.
@@ -230,11 +233,11 @@
         </div>
 
         <div class="remote-section">
-            <h2>XBJ A5 Pro Remote</h2>
+            <h2 id="remoteHeading">XBJ Remote</h2>
 
             <div class="remote-grid">
                 <!-- Power -->
-                <button class="power-button" onclick="sendCommand('power')">⏻ Power</button>
+                <button id="powerButton" class="power-button" onclick="sendCommand('power')">⏻ Power</button>
 
                 <!-- D-Pad -->
                 <div class="dpad">
@@ -264,11 +267,16 @@
                     <button class="control-button" onclick="sendCommand('volumeDown')">🔊−</button>
                     <button class="control-button" onclick="sendCommand('menu')">≡ Menu</button>
                     <button class="control-button" onclick="sendCommand('volumeUp')">🔊+</button>
-                    <button class="control-button" onclick="sendCommand('focusDown')">F−</button>
-                    <button class="control-button" onclick="sendCommand('pause')">⏸</button>
-                    <button class="control-button" onclick="sendCommand('focusUp')">F+</button>
+                    <button id="focusDown" class="control-button" onclick="sendCommand('focusDown')">F−</button>
+                    <button id="pauseButton" class="control-button" onclick="sendCommand('pause')">⏸</button>
+                    <button id="focusUp" class="control-button" onclick="sendCommand('focusUp')">F+</button>
                 </div>
 
+                <div id="extra360" class="controls" style="display:none;">
+                    <button class="control-button" onclick="sendCommand('back')">Back</button>
+                    <button class="control-button" onclick="sendCommand('home')">Home</button>
+                    <button class="control-button" onclick="sendCommand('mute')">Mute</button>
+                </div>
                 <div class="status" id="status"></div>
             </div>
         </div>
@@ -291,8 +299,9 @@
         // Generate QR code for this page
         function generateQR() {
             const url = getShareUrl();
+            document.getElementById('shareLink').textContent=url;
             const qrElement = document.getElementById('qrCode');
-            if (qrElement && qrElement.children.length === 0) {
+            if (typeof QRCode !== 'undefined' && qrElement && qrElement.children.length === 0) {
                 new QRCode(qrElement, {
                     text: url,
                     width: 200,
@@ -318,28 +327,25 @@
             window.history.back();
         }
 
+        async function requestCommand(command) {
+            if (window.AndroidBridge) return AndroidBridge.sendProjectorCommand('local', command);
+            const response = await fetch('/command?cmd=' + encodeURIComponent(command), {
+                cache:'no-store'
+            });
+            return (await response.text()).trim();
+        }
         async function sendCommand(command) {
             const status = document.getElementById('status');
             status.className = 'status';
             status.textContent = '⏳ Sending...';
 
             try {
-                let result;
-                if (typeof window.AndroidBridge !== 'undefined') {
-                    // Running inside the Projector Guy app's own WebView.
-                    result = window.AndroidBridge.sendProjectorCommand('local', command);
-                } else {
-                    // Running on a phone, loaded from the app's local LAN
-                    // server — same-origin fetch, so no CORS/mixed-content issue.
-                    const response = await fetch('/command?cmd=' + encodeURIComponent(command));
-                    result = (await response.text()).trim();
-                }
-
+                const result = await requestCommand(command);
                 if (result === 'ok') {
                     status.textContent = '✓ ' + command;
                     status.className = 'status success';
                 } else {
-                    status.textContent = '✗ Failed: ' + command;
+                    status.textContent = result === 'offline' ? 'The built-in projector remote is unavailable. Check its connection and retry.' : '✗ Failed: ' + command;
                     status.className = 'status error';
                 }
 
@@ -364,24 +370,22 @@
 
         async function checkAccessibility() {
             try {
-                let result;
-                if (typeof window.AndroidBridge !== 'undefined') {
-                    result = window.AndroidBridge.sendProjectorCommand('local', 'checkAccessibility');
-                } else {
-                    const response = await fetch('/command?cmd=checkAccessibility');
-                    result = (await response.text()).trim();
+                const model = await requestCommand('remoteModel');
+                document.getElementById('remoteHeading').textContent=model === '360'?'XBJ 360 Remote':'XBJ A5 Pro Remote';
+                if(model === '360') {
+                    ['focusUp','focusDown','pauseButton'].forEach(id=>document.getElementById(id).style.display='none');
+                    document.getElementById('extra360').style.display='grid';
+                    document.getElementById('vendorInfo').style.display='block';
+                    const result=await requestCommand('checkAccessibility');
+                    if(result !== 'ok') document.getElementById('status').textContent='The built-in remote is unavailable. Check the projector connection and retry.';
+                    return;
                 }
-                if (result !== 'ok') {
-                    document.getElementById('a11yWarning').style.display = 'block';
-                    if (typeof window.AndroidBridge !== 'undefined') {
-                        document.getElementById('a11ySettingsBtn').style.display = 'inline-block';
-                    } else {
-                        document.getElementById('a11yPhoneHint').style.display = 'inline';
-                    }
+                const result=await requestCommand('checkAccessibility');
+                if(result !== 'ok') {
+                    document.getElementById('a11yWarning').style.display='block';
+                    document.getElementById(window.AndroidBridge?'a11ySettingsBtn':'a11yPhoneHint').style.display='inline-block';
                 }
-            } catch (err) {
-                console.warn('checkAccessibility failed:', err);
-            }
+            } catch(err) {document.getElementById('status').textContent='Could not connect to the projector.';}
         }
 
         // Show status on load and generate QR code
@@ -390,16 +394,6 @@
             generateQR();
             checkAccessibility();
 
-            // Show connection status
-            if (typeof window.AndroidBridge !== 'undefined') {
-                const status = document.getElementById('status');
-                status.textContent = '✓ Connected to projector';
-                status.className = 'status success';
-                setTimeout(() => {
-                    status.className = 'status';
-                    status.textContent = '';
-                }, 2000);
-            }
         });
     </script>
 </body>

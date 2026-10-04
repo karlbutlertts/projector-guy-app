@@ -54,6 +54,18 @@ public class AndroidBridge {
     private static final String TAG = "AndroidBridge";
 
     private final Context context;
+    private ProjectorOptimisation optimisation;
+
+    @JavascriptInterface
+    public void showProjectorOptimisation(String model) {
+        if (context instanceof android.app.Activity) {
+            android.app.Activity a=(android.app.Activity)context;
+            a.runOnUiThread(() -> {
+                if (optimisation == null) optimisation=new ProjectorOptimisation(a);
+                optimisation.show(model);
+            });
+        }
+    }
 
     // Shared streaming write sessions (used by both uota and root writers)
     private final ConcurrentHashMap<String, FileOutputStream> sessions = new ConcurrentHashMap<>();
@@ -813,6 +825,10 @@ public class AndroidBridge {
     @JavascriptInterface
     public String sendProjectorCommand(String target, String command) {
         if (command == null) return "fail";
+        if ("remoteModel".equals(command)) return "uiw4068pxm".equals(Build.DEVICE)?"360":"a5pro";
+        if ("uiw4068pxm".equals(Build.DEVICE) && !HOTKEY_PACKAGES.containsKey(command)) {
+            return ProjectorRemote360.send(context,command);
+        }
         try {
             String hotkeyPackage = HOTKEY_PACKAGES.get(command);
             if (hotkeyPackage != null) {
@@ -875,6 +891,7 @@ public class AndroidBridge {
     public String getLocalRemoteUrl() {
         String ip = getLocalIpAddress();
         if (ip == null) return null;
+        if ("uiw4068pxm".equals(Build.DEVICE)) return "http://" + ip + ":8086/";
         return "http://" + ip + ":" + LocalRemoteServer.PORT + "/remote.html";
     }
 

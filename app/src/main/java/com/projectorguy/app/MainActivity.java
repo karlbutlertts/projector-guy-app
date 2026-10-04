@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
         enableImmersiveMode();
         setContentView(R.layout.activity_main);
 
-        requestStoragePermissions();
+        if (!BuildConfig.DEBUG) requestStoragePermissions();
 
         webView = findViewById(R.id.webView);
         updateOverlay = findViewById(R.id.updateOverlay);
@@ -173,9 +173,30 @@ public class MainActivity extends AppCompatActivity {
         // LocalRemoteServer's class comment for why it can't just point
         // phones at the GitHub-hosted copy of remote.html.
         localRemoteServer = new LocalRemoteServer(this, androidBridge);
-        localRemoteServer.start();
+        if (!"uiw4068pxm".equals(android.os.Build.DEVICE)) localRemoteServer.start();
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            private boolean trusted(Uri uri) {
+                String path=uri.getPath();
+                if("https".equals(uri.getScheme()) && "karlbutlertts.github.io".equals(uri.getHost()) && (uri.getPort()==-1 || uri.getPort()==443))
+                    return path!=null && (path.equals("/xbj-apk-store") || path.startsWith("/xbj-apk-store/"));
+                return "file".equals(uri.getScheme()) && (uri.getHost()==null || uri.getHost().isEmpty()) && path!=null &&
+                    (path.startsWith("/android_asset/www/") || (BuildConfig.DEBUG && path.startsWith("/android_asset/sidebar/")));
+            }
+            @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                if(trusted(request.getUrl())) return false;
+                if(request.isForMainFrame()) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW,request.getUrl())); } catch(Exception ignored) {}
+                }
+                return true;
+            }
+            @Override public boolean shouldOverrideUrlLoading(WebView view,String url) {
+                Uri uri=Uri.parse(url);
+                if(trusted(uri)) return false;
+                try { startActivity(new Intent(Intent.ACTION_VIEW,uri)); } catch(Exception ignored) {}
+                return true;
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
 
         // Let the browser-layer download links work too (non-native fallback)
@@ -189,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
-            webView.loadUrl(START_URL);
+            webView.loadUrl(BuildConfig.DEBUG ? "file:///android_asset/sidebar/index.html" : START_URL);
         }
 
         // Check for updates unconditionally on every cold launch, rather than
@@ -201,7 +222,7 @@ public class MainActivity extends AppCompatActivity {
         // Doing it here instead means every future update reaches every
         // device the moment it's opened, independent of login state or
         // whatever the web page happens to do.
-        onUserUnlocked();
+        if (!BuildConfig.DEBUG) onUserUnlocked();
     }
 
     /**

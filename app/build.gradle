@@ -16,8 +16,8 @@ android {
         applicationId "com.projectorguy.app"
         minSdk 21
         targetSdk 34
-        versionCode 27
-        versionName "2.10.0"
+        versionCode 28
+        versionName "2.11.0"
     }
 
     signingConfigs {
@@ -31,7 +31,10 @@ android {
         }
     }
 
+    buildFeatures { buildConfig true }
+
     buildTypes {
+        debug { applicationIdSuffix ".localtest"; versionNameSuffix "-optimisation-test" }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
