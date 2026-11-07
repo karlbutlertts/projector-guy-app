@@ -216,7 +216,7 @@ public class MainActivity extends AppCompatActivity {
         // Check for updates unconditionally on every cold launch, rather than
         // waiting for the web page to call AndroidBridge.onUnlocked(). That
         // JS-triggered path only fires on a fresh code entry or a returning
-        // session — so a device already sitting inside its 30-day session,
+        // activation — so an already activated device,
         // running a build from before that returning-session call existed,
         // would never run the check at all and could never update itself.
         // Doing it here instead means every future update reaches every
