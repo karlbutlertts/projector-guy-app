@@ -16,8 +16,8 @@ android {
         applicationId "com.projectorguy.app"
         minSdk 21
         targetSdk 34
-        versionCode 28
-        versionName "2.11.0"
+        versionCode 31
+        versionName "2.11.3"
     }
 
     signingConfigs {

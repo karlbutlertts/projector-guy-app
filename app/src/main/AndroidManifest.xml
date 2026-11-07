@@ -64,6 +64,7 @@
              backed by NLProjector.jar on the device's framework classpath. Not present
              on non-XBJ hardware, hence required="false". -->
         <uses-library android:name="com.newlink.android.projector" android:required="false" />
+        <receiver android:name=".InstallResultReceiver" android:exported="false" />
 
         <activity
             android:name=".MainActivity"

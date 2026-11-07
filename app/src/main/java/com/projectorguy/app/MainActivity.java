@@ -222,7 +222,8 @@ public class MainActivity extends AppCompatActivity {
         // Doing it here instead means every future update reaches every
         // device the moment it's opened, independent of login state or
         // whatever the web page happens to do.
-        if (!BuildConfig.DEBUG) onUserUnlocked();
+        if (getIntent().hasExtra(PackageInstaller.EXTRA_STATUS)) handleInstallResult(getIntent());
+        else if (!BuildConfig.DEBUG) onUserUnlocked();
     }
 
     /**
@@ -674,7 +675,7 @@ public class MainActivity extends AppCompatActivity {
                 if (size > 0) {
                     int pct = (int) (received * 100 / size);
                     runOnUiThread(() -> updateStatusText.setText(
-                            "Downloading " + label + " (" + index + "/" + total + ")… " + pct + "%"));
+                            "Downloading " + label + "… " + (((index - 1) * 100 + pct) / total) + "%"));
                 }
             }
             fos.flush();
@@ -706,10 +707,17 @@ public class MainActivity extends AppCompatActivity {
      */
     private void launchMultiInstaller(List<File> apkFiles) {
         currentMultiInstallApks = apkFiles;
+        org.json.JSONArray savedFiles = new org.json.JSONArray();
+        for (File file : apkFiles) savedFiles.put(file.getAbsolutePath());
+        getSharedPreferences("installer", 0).edit().putString("pendingSplits", savedFiles.toString()).commit();
         try {
             PackageInstaller installer = getPackageManager().getPackageInstaller();
             PackageInstaller.SessionParams params =
                     new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+            long totalBytes = 0;
+            for (File apk : apkFiles) totalBytes += apk.length();
+            params.setSize(totalBytes);
+            if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
             int sessionId = installer.createSession(params);
             PackageInstaller.Session session = installer.openSession(sessionId);
             try {
@@ -723,10 +731,10 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                Intent callbackIntent = new Intent(this, MainActivity.class);
+                Intent callbackIntent = new Intent(this, InstallResultReceiver.class);
                 int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) piFlags |= PendingIntent.FLAG_MUTABLE;
-                PendingIntent pendingIntent = PendingIntent.getActivity(this, sessionId, callbackIntent, piFlags);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(this, sessionId, callbackIntent, piFlags);
 
                 updateStatusText.setText("Installing…");
                 updateOverlay.setVisibility(View.VISIBLE);
@@ -753,6 +761,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        handleInstallResult(intent);
+    }
+
+    private void handleInstallResult(Intent intent) {
         if (intent == null || !intent.hasExtra(PackageInstaller.EXTRA_STATUS)) return;
 
         int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
@@ -769,6 +781,7 @@ public class MainActivity extends AppCompatActivity {
 
         if (status == PackageInstaller.STATUS_SUCCESS) {
             currentMultiInstallApks = null;
+            getSharedPreferences("installer", 0).edit().remove("pendingSplits").apply();
             updateStatusText.setText("Installed");
             updateOverlay.setVisibility(View.VISIBLE);
             updateOverlay.postDelayed(this::hideUpdateOverlay, 1500);
@@ -776,25 +789,44 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Log.w(TAG, "Split install failed (status=" + status + "): " + message);
-        final List<File> retryApks = currentMultiInstallApks;
+        final List<File> retryApks = recoverPendingSplits();
         currentMultiInstallApks = null;
-        // Show the actual PackageInstaller status/message on screen for a
-        // few seconds before falling back to the tip — this is temporary
-        // diagnostic instrumentation while we're still tracking down why
-        // STV Player/ITVX fail to install, not the final copy.
-        updateStatusText.setText("Install failed (status " + status + "): " + message);
-        updateOverlay.setVisibility(View.VISIBLE);
-        updateOverlay.postDelayed(() -> {
-            // We actually know this failed, unlike the single-file install
-            // path — re-show the tip with the same files so Install just
-            // works after they've deleted whatever's conflicting, no need
-            // to redownload.
-            if (retryApks != null) {
-                showInstallTip(retryApks);
-            } else {
-                hideUpdateOverlay();
+        hideUpdateOverlay();
+        String detail = message == null ? "Android did not complete the installation." : message;
+        android.app.AlertDialog.Builder dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle("Installation did not complete")
+                .setMessage(detail + "\n\nYour downloaded files are kept. A signature conflict may require uninstalling the existing app; other failures do not.")
+                .setNegativeButton("Close", null);
+        if (retryApks != null) dialog.setPositiveButton("Retry", (d, w) -> launchMultiInstaller(retryApks));
+        if (retryApks != null && (android.os.Build.DEVICE.equals("pioneer5_sdp_lr") || android.os.Build.DEVICE.equals("uiw4068pxm"))) {
+            dialog.setNeutralButton("Projector install", (d, w) -> new android.app.AlertDialog.Builder(this)
+                    .setTitle("Install using projector connection")
+                    .setMessage("This installs the original signed APK files together. It requires debugging to be enabled and your approval of Projector Guy's connection. Existing app data is kept.")
+                    .setPositiveButton("Install", (x, y) -> {
+                        updateStatusText.setText("Installing using projector connection…");
+                        updateOverlay.setVisibility(View.VISIBLE);
+                        ProjectorSplitInstaller.install(this, retryApks, messageText -> {
+                            hideUpdateOverlay();
+                            new android.app.AlertDialog.Builder(this).setMessage(messageText).setPositiveButton("OK", null).show();
+                        });
+                    }).setNegativeButton("Cancel", null).show());
+        }
+        dialog.show();
+    }
+
+    private List<File> recoverPendingSplits() {
+        if (currentMultiInstallApks != null) return currentMultiInstallApks;
+        List<File> files = new ArrayList<>();
+        try {
+            String root = new File(getCacheDir(), "updates/splits").getCanonicalPath() + "/";
+            org.json.JSONArray saved = new org.json.JSONArray(getSharedPreferences("installer", 0).getString("pendingSplits", "[]"));
+            for (int i = 0; i < saved.length(); i++) {
+                File file = new File(saved.getString(i));
+                if (!file.getCanonicalPath().startsWith(root) || !file.isFile()) return null;
+                files.add(file);
             }
-        }, 5000);
+        } catch (Exception e) { return null; }
+        return files.isEmpty() ? null : files;
     }
 
     @Override
