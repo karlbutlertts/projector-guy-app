@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "id": "xbj360-hermes-34",
+      "name": "XBJ 360 \u00b7 Allwinner \u00b7 Android 14",
+      "device": "uiw4068pxm",
+      "hardware": "sun50iw15p1",
+      "sdk": 34,
+      "launcher": "com.mylove.ui",
+      "strengths": "Android 14/API 34; stock remote-friendly home screen; casting apps installed.",
+      "limitations": "About 1 GB RAM; 32-bit Android app environment; limited internal storage. Factory defaults have not been captured on an untouched unit.",
+      "actions": [
+        {
+          "type": "animation",
+          "target": "window_animation_scale",
+          "value": "0"
+        },
+        {
+          "type": "animation",
+          "target": "transition_animation_scale",
+          "value": "0"
+        },
+        {
+          "type": "animation",
+          "target": "animator_duration_scale",
+          "value": "0"
+        },
+        {
+          "type": "package",
+          "target": "com.android.bips",
+          "value": "3"
+        },
+        {
+          "type": "package",
+          "target": "com.android.traceur",
+          "value": "3"
+        }
+      ],
+      "knownIssues": [
+        "Firmware rewrites accessibility services on focused-app changes. Preserve the original com.oranth.accessibility helper.",
+        "User reports excellent horizontal navigation but Up/Down skips posters and selects navigation/buttons. This is a target-selection limitation in the original helper.",
+        "350 ms repeat trial was reverted to 150 ms with 400 ms hold timeout after feedback; timing changes are not a fix and are not automatic profile actions."
+      ]
+    },
+    {
+      "id": "xbj-b11-bigfish-28",
+      "name": "XBJ B11 \u00b7 HiSilicon \u00b7 Android 9",
+      "device": "Hi3751V350",
+      "hardware": "bigfish",
+      "sdk": 28,
+      "launcher": "com.selenview.lemon",
+      "strengths": "Stock Lemon launcher; vendor picture, sound and projection menus were opened and verified on the tested unit.",
+      "limitations": "About 1 GB RAM; API 28/Android 9 despite the Settings label. Picture calibration needs visual checking; no measured brightness or speed gain. Factory defaults remain unknown.",
+      "actions": [
+        {
+          "type": "animation",
+          "target": "window_animation_scale",
+          "value": "0"
+        },
+        {
+          "type": "animation",
+          "target": "transition_animation_scale",
+          "value": "0"
+        },
+        {
+          "type": "animation",
+          "target": "animator_duration_scale",
+          "value": "0"
+        },
+        {
+          "type": "package",
+          "target": "com.android.bips",
+          "value": "3"
+        },
+        {
+          "type": "package",
+          "target": "com.android.traceur",
+          "value": "3"
+        },
+        {
+          "type": "package",
+          "target": "org.chromium.webview_shell",
+          "value": "3"
+        }
+      ]
+    }
+  ]
+}
