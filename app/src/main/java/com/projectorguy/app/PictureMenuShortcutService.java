@@ -20,16 +20,18 @@ public final class PictureMenuShortcutService extends AccessibilityService {
         return target != null && target.activityInfo.exported;
     }
 
+    static Intent panelIntent() {
+        return new Intent(PANEL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    }
+
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
         if (event.getKeyCode() != KeyEvent.KEYCODE_MENU || !isSupported(this)) {
             return false;
         }
         if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
-            Intent panel = new Intent(PANEL)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {
-                startActivity(panel);
+                startActivity(panelIntent());
                 Log.i("PictureMenuShortcut", "Opened native picture menu");
             } catch (ActivityNotFoundException | SecurityException e) {
                 Log.w("PictureMenuShortcut", "Native picture menu unavailable", e);

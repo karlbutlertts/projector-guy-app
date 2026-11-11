@@ -21,10 +21,8 @@ public final class PictureShortcutSetupActivity extends Activity {
         Button next = findViewById(R.id.pictureSetupContinue);
         next.setOnClickListener(v -> openTvSettings());
         findViewById(R.id.pictureSetupOpenPicture).setOnClickListener(v -> {
-            Intent picture = new Intent().setClassName(
-                    "com.zhiying.settings", "com.zhiying.settings.picturemode.PictureModeActivity");
             try {
-                startActivity(picture);
+                startActivity(PictureMenuShortcutService.panelIntent());
             } catch (ActivityNotFoundException | SecurityException e) {
                 Toast.makeText(this, R.string.picture_open_unavailable, Toast.LENGTH_LONG).show();
             }
@@ -47,7 +45,7 @@ public final class PictureShortcutSetupActivity extends Activity {
         findViewById(R.id.pictureSetupBackHint).setVisibility(enabled ? View.GONE : View.VISIBLE);
     }
 
-    static boolean isShortcutEnabled(Context context) {
+    private static boolean isShortcutEnabled(Context context) {
         AccessibilityManager manager = context.getSystemService(AccessibilityManager.class);
         ComponentName shortcut = new ComponentName(context, PictureMenuShortcutService.class);
         for (AccessibilityServiceInfo service : manager.getEnabledAccessibilityServiceList(

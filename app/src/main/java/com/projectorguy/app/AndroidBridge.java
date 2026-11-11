@@ -775,32 +775,15 @@ public class AndroidBridge {
     }
 
     @JavascriptInterface
-    public boolean hasSoundControl() {
-        return PictureMenuShortcutService.isSupported(context)
-                && vendorSettingsIntent(".soundmode.SoundModeActivity").resolveActivity(
-                        context.getPackageManager()) != null;
+    public boolean openPictureAndSoundSettings() {
+        return hasPictureSettings() && startActivitySafely(
+                PictureMenuShortcutService.panelIntent(), "Picture and Sound Settings");
     }
 
     @JavascriptInterface
-    public boolean openPictureSettings() {
-        if (!hasPictureSettings()) return false;
-        if (PictureShortcutSetupActivity.isShortcutEnabled(context)) {
-            return startActivitySafely(vendorSettingsIntent(".picturemode.PictureModeActivity"),
-                    "Picture Settings");
-        }
-        return startActivitySafely(new Intent(context, PictureShortcutSetupActivity.class),
-                "Picture shortcut setup");
-    }
-
-    @JavascriptInterface
-    public boolean openSoundControl() {
-        return hasSoundControl() && startActivitySafely(
-                vendorSettingsIntent(".soundmode.SoundModeActivity"), "Sound Control");
-    }
-
-    private static Intent vendorSettingsIntent(String activity) {
-        String pkg = "com.zhiying.settings";
-        return new Intent().setClassName(pkg, pkg + activity);
+    public boolean openPictureShortcutSetup() {
+        return hasPictureSettings() && startActivitySafely(
+                new Intent(context, PictureShortcutSetupActivity.class), "Picture shortcut setup");
     }
 
     // ───────────────────────────────────────────────────────────────────────

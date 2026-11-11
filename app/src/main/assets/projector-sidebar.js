@@ -3,18 +3,22 @@
   if (!sidebar || sidebar.dataset.projectorControls) return;
   const remote = sidebar.querySelector('#sideRemote');
   const tutorials = sidebar.querySelector('#sideTutorials');
-  if (!remote || !tutorials) return;
+  const streaming = sidebar.querySelector('[data-view="streaming"]');
+  const tools = sidebar.querySelector('[data-view="tools"]');
+  if (!remote || !tutorials || !streaming || !tools) return;
 
-  function replaceLink(link, id, label, available, open, iconPath) {
+  for (const link of [remote, tutorials]) {
     link.hidden = true;
     link.style.display = 'none';
-    if (!available) return;
+  }
+  streaming.querySelector('.side-label').textContent = 'Streaming Services';
 
+  function insertControl(before, id, label, open, iconPath) {
     const button = document.createElement('button');
     button.id = id;
     button.type = 'button';
-    button.className = link.className;
-    const icon = link.querySelector('svg').cloneNode(false);
+    button.className = streaming.className;
+    const icon = streaming.querySelector('svg').cloneNode(false);
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', iconPath);
     icon.setAttribute('aria-hidden', 'true');
@@ -26,15 +30,36 @@
     button.addEventListener('click', () => {
       if (!open()) window.alert(label + ' could not be opened.');
     });
-    link.after(button);
+    before.before(button);
   }
 
   const bridge = window.AndroidBridge;
-  replaceLink(remote, 'sidePictureSettings', 'Picture Settings',
-    bridge.hasPictureSettings(), () => bridge.openPictureSettings(),
-    'M3 5h18v14H3z M5 16l4-4 3 3 3-4 4 5');
-  replaceLink(tutorials, 'sideSoundControl', 'Sound Control',
-    bridge.hasSoundControl(), () => bridge.openSoundControl(),
-    'M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12');
+  if (bridge.hasPictureSettings()) {
+    const openPanel = () => bridge.openPictureAndSoundSettings();
+    insertControl(tools, 'sidePictureSettings', 'Picture Settings', openPanel,
+      'M3 5h18v14H3z M5 16l4-4 3 3 3-4 4 5');
+    insertControl(tools, 'sideSoundControl', 'Sound Settings', openPanel,
+      'M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12');
+
+    const view = document.getElementById('viewBody');
+    function addShortcutSetup() {
+      const changeModel = view.querySelector('.panel-row [data-action="change-model"]');
+      if (!changeModel || view.querySelector('#pictureShortcutSetup')) return;
+      const row = document.createElement('div');
+      row.id = 'pictureShortcutSetup';
+      row.className = 'panel-row';
+      row.innerHTML = '<div class="panel-label"><b>Picture and Sound shortcut</b>'
+        + '<span>Set up the Menu button on your remote</span></div>'
+        + '<button class="panel-btn nav-focusable" type="button">Open</button>';
+      row.querySelector('button').addEventListener('click', () => {
+        if (!bridge.openPictureShortcutSetup()) window.alert('Shortcut setup could not be opened.');
+      });
+      changeModel.closest('.panel-row').after(row);
+    }
+    if (view) {
+      new MutationObserver(addShortcutSetup).observe(view, {childList: true});
+      addShortcutSetup();
+    }
+  }
   sidebar.dataset.projectorControls = 'true';
 })();
