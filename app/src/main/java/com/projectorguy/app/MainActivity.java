@@ -36,6 +36,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -119,7 +120,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         enableImmersiveMode();
         setContentView(R.layout.activity_main);
-
         if (!BuildConfig.DEBUG) requestStoragePermissions();
 
         webView = findViewById(R.id.webView);
@@ -183,6 +183,18 @@ public class MainActivity extends AppCompatActivity {
                 return "file".equals(uri.getScheme()) && (uri.getHost()==null || uri.getHost().isEmpty()) && path!=null &&
                     (path.startsWith("/android_asset/www/") || (BuildConfig.DEBUG && path.startsWith("/android_asset/sidebar/")));
             }
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                Uri uri = Uri.parse(url);
+                if (!trusted(uri) || !isCataloguePage(url)) return;
+                try {
+                    view.evaluateJavascript(readAll(getAssets().open("projector-sidebar.js")), null);
+                } catch (IOException e) {
+                    Log.w(TAG, "Could not load projector sidebar controls", e);
+                }
+            }
+
             @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
                 if(trusted(request.getUrl())) return false;
                 if(request.isForMainFrame()) {
@@ -249,13 +261,19 @@ public class MainActivity extends AppCompatActivity {
         if (hasFocus) enableImmersiveMode();
     }
 
-    /**
-     * Let D-pad left/right/up/down on the remote scroll the page when nothing
-     * inside the WebView itself consumes the key (e.g. plain content areas).
-     */
+    private static boolean isCataloguePage(String url) {
+        if (url == null) return false;
+        String path = Uri.parse(url).getPath();
+        return "/xbj-apk-store/".equals(path) || "/xbj-apk-store".equals(path)
+                || "/xbj-apk-store/index.html".equals(path)
+                || "/android_asset/sidebar/index.html".equals(path);
+    }
+
+    /** Keep the native scroll fallback for plain pages without catalogue navigation. */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (webView != null && event.getAction() == KeyEvent.ACTION_DOWN) {
+        if (webView != null && !isCataloguePage(webView.getUrl())
+                && event.getAction() == KeyEvent.ACTION_DOWN) {
             switch (event.getKeyCode()) {
                 case KeyEvent.KEYCODE_DPAD_DOWN:
                     webView.scrollBy(0, 120);
@@ -387,7 +405,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String readAll(InputStream in) throws Exception {
+    private String readAll(InputStream in) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         byte[] buf = new byte[8192];
         int n;
@@ -668,14 +686,19 @@ public class MainActivity extends AppCompatActivity {
             FileOutputStream fos = new FileOutputStream(out);
             byte[] buf = new byte[65536];
             long received = 0;
+            int lastProgress = -1;
             int n;
             while ((n = in.read(buf)) != -1) {
                 fos.write(buf, 0, n);
                 received += n;
                 if (size > 0) {
                     int pct = (int) (received * 100 / size);
-                    runOnUiThread(() -> updateStatusText.setText(
-                            "Downloading " + label + "… " + (((index - 1) * 100 + pct) / total) + "%"));
+                    int progress = ((index - 1) * 100 + pct) / total;
+                    if (progress != lastProgress) {
+                        lastProgress = progress;
+                        runOnUiThread(() -> updateStatusText.setText(
+                                "Downloading " + label + "… " + progress + "%"));
+                    }
                 }
             }
             fos.flush();

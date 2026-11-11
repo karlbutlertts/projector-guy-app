@@ -1,0 +1,130 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/xbj_bg"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="48dp">
+
+            <ImageView
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:background="@drawable/badge_rounded_bg"
+                android:padding="16dp"
+                android:src="@drawable/xbj_icon"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:id="@+id/pictureSetupHeading"
+                android:text="@string/picture_setup_heading"
+                android:textColor="#ffffff"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:gravity="center"
+                android:id="@+id/pictureSetupInstructions"
+                android:text="@string/picture_setup_instructions"
+                android:textColor="@color/xbj_text2"
+                android:textSize="18sp"
+                android:lineSpacingExtra="4dp" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/pictureSetupBackHint"
+                android:layout_marginTop="26dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/back_chip_bg"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center_vertical"
+                    android:src="@drawable/back_hint_arrow"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/picture_setup_back"
+                    android:textColor="#ffffff"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:id="@+id/pictureSetupNote"
+                android:gravity="center"
+                android:text="@string/picture_setup_note"
+                android:textColor="@color/xbj_text2"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/pictureSetupRestoreOnBoot"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:minHeight="48dp"
+                android:focusable="true"
+                android:background="@drawable/btn_primary_bg"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:switchPadding="16dp"
+                android:text="@string/picture_setup_boot_toggle"
+                android:textColor="@color/xbj_accent_ink"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/pictureSetupContinue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="36dp"
+                android:minWidth="220dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp"
+                android:paddingStart="36dp"
+                android:paddingEnd="36dp"
+                android:background="@drawable/btn_primary_bg"
+                android:text="@string/picture_setup_continue"
+                android:textAllCaps="false"
+                android:textColor="@color/xbj_accent_ink"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:elevation="6dp" />
+            <Button
+                android:id="@+id/pictureSetupOpenPicture"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:minWidth="220dp"
+                android:background="@drawable/btn_primary_bg"
+                android:text="@string/picture_open_now"
+                android:textAllCaps="false"
+                android:textColor="@color/xbj_accent_ink"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </ScrollView>

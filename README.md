@@ -84,3 +84,18 @@ a bonus that only fires on rooted units.
   (no CORS). Say the word and I'll add it.
 - **MANAGE_EXTERNAL_STORAGE:** on Android 11+ the app asks for all-files access on
   first launch — the user must grant it for USB writes to work.
+
+### A5 Pro Picture Shortcut after restart
+
+On A5 Pro firmware where NewLink clears the accessibility service list at startup, Projector Guy can restore its Picture Shortcut after boot. This is an optional setup for units you can administer over ADB.
+
+1. Install the Projector Guy APK and grant its optional settings permission on that projector:
+
+   ```sh
+   adb shell pm grant com.projectorguy.app android.permission.WRITE_SECURE_SETTINGS
+   ```
+
+2. In Projector Guy, open **Settings → Picture and Sound shortcut**. Enable **Projector Guy Picture shortcut** in Android TV Accessibility, return to Projector Guy, and switch on **Restore shortcut after restart**.
+3. Restart the projector. Wait for startup to finish, then press **Menu** during full-screen playback. Projector Guy can stay closed.
+
+If the earlier **Projector Guy Picture Boot Helper** is installed, uninstall it once the in-app option is on so that only Projector Guy manages the shortcut. To stop restoring at boot, turn off the in-app switch. You can also revoke the optional grant with `adb shell pm revoke com.projectorguy.app android.permission.WRITE_SECURE_SETTINGS`.

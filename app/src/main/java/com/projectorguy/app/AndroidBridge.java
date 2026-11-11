@@ -769,6 +769,23 @@ public class AndroidBridge {
         return startActivitySafely(intent, packageName + "/" + activityName);
     }
 
+    @JavascriptInterface
+    public boolean hasPictureSettings() {
+        return PictureMenuShortcutService.isSupported(context);
+    }
+
+    @JavascriptInterface
+    public boolean openPictureAndSoundSettings() {
+        return hasPictureSettings() && startActivitySafely(
+                PictureMenuShortcutService.panelIntent(), "Picture and Sound Settings");
+    }
+
+    @JavascriptInterface
+    public boolean openPictureShortcutSetup() {
+        return hasPictureSettings() && startActivitySafely(
+                new Intent(context, PictureShortcutSetupActivity.class), "Picture shortcut setup");
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     //  PICTURE PRESETS — see PictureModeBridge for how this actually talks
     //  to the vendor's picture-mode service. Also used by the native

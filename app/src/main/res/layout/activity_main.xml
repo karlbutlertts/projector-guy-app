@@ -102,13 +102,12 @@
                 android:paddingTop="12dp"
                 android:paddingBottom="12dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⟵"
-                    android:textColor="@color/xbj_accent"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center_vertical"
+                    android:src="@drawable/back_hint_arrow"
+                    android:importantForAccessibility="no" />
 
                 <TextView
                     android:layout_width="wrap_content"
