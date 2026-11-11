@@ -7,8 +7,7 @@
   const tools = sidebar.querySelector('[data-view="tools"]');
   if (!remote || !tutorials || !streaming || !tools) return;
 
-  const allApps = sidebar.querySelector('[data-view="all"]');
-  for (const link of [allApps, remote, tutorials].filter(Boolean)) {
+  for (const link of [remote, tutorials]) {
     link.hidden = true;
     link.style.display = 'none';
   }
@@ -16,6 +15,7 @@
 
   const focusStyles = document.createElement('style');
   focusStyles.textContent = [
+    '#sidebar [data-view="all"], #stage [data-chipview="all"] { display: none; }',
     '#sidebar .side-item, #stage .chip, #stage .card, #stage .card-art { transition: none; }',
     '#stage .row, #stage .hero, #stage .ent-panel-lock { animation: none; }',
     '#stage .card:focus-visible, #stage .card.nav-focus { transform: none; }',
