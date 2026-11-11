@@ -9,6 +9,19 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <Button
+        android:id="@+id/pictureShortcutButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="12dp"
+        android:background="@drawable/btn_primary_bg"
+        android:paddingHorizontal="20dp"
+        android:text="@string/picture_shortcut_title"
+        android:textAllCaps="false"
+        android:textColor="@color/xbj_accent_ink"
+        android:visibility="gone" />
+
     <!-- Shown while checking github.com/apps.json for an app update, right
          after the WebView's own code-lock screen grants access. Hidden the
          rest of the time. -->
@@ -102,13 +115,12 @@
                 android:paddingTop="12dp"
                 android:paddingBottom="12dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="⟵"
-                    android:textColor="@color/xbj_accent"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center_vertical"
+                    android:src="@drawable/back_hint_arrow"
+                    android:importantForAccessibility="no" />
 
                 <TextView
                     android:layout_width="wrap_content"

@@ -119,6 +119,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         enableImmersiveMode();
         setContentView(R.layout.activity_main);
+        if (PictureMenuShortcutService.isSupported(this)) {
+            View shortcut = findViewById(R.id.pictureShortcutButton);
+            shortcut.setVisibility(View.VISIBLE);
+            shortcut.setOnClickListener(v -> startActivity(new Intent(this, PictureShortcutSetupActivity.class)));
+        }
 
         if (!BuildConfig.DEBUG) requestStoragePermissions();
 
