@@ -7,11 +7,50 @@
   const tools = sidebar.querySelector('[data-view="tools"]');
   if (!remote || !tutorials || !streaming || !tools) return;
 
-  for (const link of [remote, tutorials]) {
+  const allApps = sidebar.querySelector('[data-view="all"]');
+  for (const link of [allApps, remote, tutorials].filter(Boolean)) {
     link.hidden = true;
     link.style.display = 'none';
   }
-  streaming.querySelector('.side-label').textContent = 'Streaming Services';
+  streaming.querySelector('.side-label').textContent = 'App Updates';
+
+  const focusStyles = document.createElement('style');
+  focusStyles.textContent = [
+    '#sidebar .side-item, #stage .chip, #stage .card, #stage .card-art { transition: none; }',
+    '#stage .row, #stage .hero, #stage .ent-panel-lock { animation: none; }',
+    '#stage .card:focus-visible, #stage .card.nav-focus { transform: none; }',
+    '#stage .rail { scroll-behavior: auto; }'
+  ].join('\n');
+  document.head.append(focusStyles);
+
+  sidebar.addEventListener('keydown', event => {
+    const up = event.key === 'ArrowUp' || event.keyCode === 38;
+    const down = event.key === 'ArrowDown' || event.keyCode === 40;
+    if ((!up && !down) || event.defaultPrevented) return;
+    if (document.querySelector('.modal:not(.hidden), #entOverlay:not(.hidden)')) return;
+
+    const active = document.activeElement;
+    if (!active.matches('.side-item.nav-focusable')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const sibling = up ? 'previousElementSibling' : 'nextElementSibling';
+    let next = active[sibling];
+    while (next && (!next.matches('.side-item.nav-focusable') || next.hidden || next.disabled
+      || !next.getClientRects().length)) {
+      next = next[sibling];
+    }
+    if (!next) return;
+
+    next.focus({preventScroll: true});
+    const itemBounds = next.getBoundingClientRect();
+    const sidebarBounds = sidebar.getBoundingClientRect();
+    if (itemBounds.top < sidebarBounds.top) {
+      sidebar.scrollTop += itemBounds.top - sidebarBounds.top;
+    } else if (itemBounds.bottom > sidebarBounds.bottom) {
+      sidebar.scrollTop += itemBounds.bottom - sidebarBounds.bottom;
+    }
+  });
 
   function insertControl(before, id, label, open, iconPath) {
     const button = document.createElement('button');
