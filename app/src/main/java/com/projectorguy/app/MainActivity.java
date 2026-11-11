@@ -36,6 +36,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -119,12 +120,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         enableImmersiveMode();
         setContentView(R.layout.activity_main);
-        if (PictureMenuShortcutService.isSupported(this)) {
-            View shortcut = findViewById(R.id.pictureShortcutButton);
-            shortcut.setVisibility(View.VISIBLE);
-            shortcut.setOnClickListener(v -> startActivity(new Intent(this, PictureShortcutSetupActivity.class)));
-        }
-
         if (!BuildConfig.DEBUG) requestStoragePermissions();
 
         webView = findViewById(R.id.webView);
@@ -188,6 +183,22 @@ public class MainActivity extends AppCompatActivity {
                 return "file".equals(uri.getScheme()) && (uri.getHost()==null || uri.getHost().isEmpty()) && path!=null &&
                     (path.startsWith("/android_asset/www/") || (BuildConfig.DEBUG && path.startsWith("/android_asset/sidebar/")));
             }
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                Uri uri = Uri.parse(url);
+                String path = uri.getPath();
+                if (!trusted(uri) || path == null) return;
+                if (!path.equals("/xbj-apk-store/") && !path.equals("/xbj-apk-store")
+                        && !path.equals("/xbj-apk-store/index.html")
+                        && !path.equals("/android_asset/sidebar/index.html")) return;
+                try {
+                    view.evaluateJavascript(readAll(getAssets().open("projector-sidebar.js")), null);
+                } catch (IOException e) {
+                    Log.w(TAG, "Could not load projector sidebar controls", e);
+                }
+            }
+
             @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
                 if(trusted(request.getUrl())) return false;
                 if(request.isForMainFrame()) {
@@ -392,7 +403,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String readAll(InputStream in) throws Exception {
+    private String readAll(InputStream in) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         byte[] buf = new byte[8192];
         int n;

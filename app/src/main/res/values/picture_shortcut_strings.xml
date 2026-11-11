@@ -2,13 +2,15 @@
     <string name="picture_shortcut_title">Picture shortcut</string>
     <string name="picture_shortcut_name">Projector Guy Picture shortcut</string>
     <string name="picture_setup_heading">One more step</string>
-    <string name="picture_setup_instructions">Turn on the Picture shortcut to open Image Settings with Menu on your remote, even while a video plays.\n\nIn Android TV Settings, go to Device Preferences → Accessibility → Services. Choose Projector Guy Picture shortcut and turn it on. Select Allow if asked.</string>
-    <string name="picture_setup_note">While the shortcut is on, Menu opens Image Settings in place of the menu in the app you’re using.</string>
+    <string name="picture_setup_instructions">Turn on the Picture shortcut to open Picture and Sound settings with Menu on your remote, even while a video plays.\n\nIn Android TV Settings, go to Device Preferences → Accessibility → Services. Choose Projector Guy Picture shortcut and turn it on. Select Allow if asked.</string>
+    <string name="picture_setup_note">While the shortcut is on, Menu opens the projector settings in place of the menu in the app you’re using.</string>
     <string name="picture_setup_back">Press Back to return here</string>
     <string name="picture_setup_continue">Continue</string>
     <string name="picture_setup_ready">Your Picture shortcut is on</string>
-    <string name="picture_setup_usage">Press Menu from Home or while watching a video. Use the arrows and OK to adjust the picture. Press Back to close Image Settings.</string>
+    <string name="picture_setup_usage">Press Menu from Home or while watching a video. Choose Image Settings or Audio Settings. Press Back to close the panel.</string>
     <string name="picture_setup_turn_off">To restore the usual Menu button, turn off Projector Guy Picture shortcut in Android TV Settings.</string>
     <string name="picture_setup_settings">Open Android TV Settings</string>
     <string name="picture_setup_unavailable">Could not open Android TV Settings.</string>
+    <string name="picture_open_now">Open Picture Settings</string>
+    <string name="picture_open_unavailable">Could not open Picture Settings.</string>
 </resources>

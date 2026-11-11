@@ -769,6 +769,40 @@ public class AndroidBridge {
         return startActivitySafely(intent, packageName + "/" + activityName);
     }
 
+    @JavascriptInterface
+    public boolean hasPictureSettings() {
+        return PictureMenuShortcutService.isSupported(context);
+    }
+
+    @JavascriptInterface
+    public boolean hasSoundControl() {
+        return PictureMenuShortcutService.isSupported(context)
+                && vendorSettingsIntent(".soundmode.SoundModeActivity").resolveActivity(
+                        context.getPackageManager()) != null;
+    }
+
+    @JavascriptInterface
+    public boolean openPictureSettings() {
+        if (!hasPictureSettings()) return false;
+        if (PictureShortcutSetupActivity.isShortcutEnabled(context)) {
+            return startActivitySafely(vendorSettingsIntent(".picturemode.PictureModeActivity"),
+                    "Picture Settings");
+        }
+        return startActivitySafely(new Intent(context, PictureShortcutSetupActivity.class),
+                "Picture shortcut setup");
+    }
+
+    @JavascriptInterface
+    public boolean openSoundControl() {
+        return hasSoundControl() && startActivitySafely(
+                vendorSettingsIntent(".soundmode.SoundModeActivity"), "Sound Control");
+    }
+
+    private static Intent vendorSettingsIntent(String activity) {
+        String pkg = "com.zhiying.settings";
+        return new Intent().setClassName(pkg, pkg + activity);
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     //  PICTURE PRESETS — see PictureModeBridge for how this actually talks
     //  to the vendor's picture-mode service. Also used by the native

@@ -3,6 +3,7 @@ package com.projectorguy.app;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -19,13 +20,22 @@ public final class PictureShortcutSetupActivity extends Activity {
         setContentView(R.layout.activity_picture_shortcut_setup);
         Button next = findViewById(R.id.pictureSetupContinue);
         next.setOnClickListener(v -> openTvSettings());
+        findViewById(R.id.pictureSetupOpenPicture).setOnClickListener(v -> {
+            Intent picture = new Intent().setClassName(
+                    "com.zhiying.settings", "com.zhiying.settings.picturemode.PictureModeActivity");
+            try {
+                startActivity(picture);
+            } catch (ActivityNotFoundException | SecurityException e) {
+                Toast.makeText(this, R.string.picture_open_unavailable, Toast.LENGTH_LONG).show();
+            }
+        });
         next.post(next::requestFocus);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        boolean enabled = isShortcutEnabled();
+        boolean enabled = isShortcutEnabled(this);
         ((TextView) findViewById(R.id.pictureSetupHeading)).setText(
                 enabled ? R.string.picture_setup_ready : R.string.picture_setup_heading);
         ((TextView) findViewById(R.id.pictureSetupInstructions)).setText(
@@ -37,9 +47,9 @@ public final class PictureShortcutSetupActivity extends Activity {
         findViewById(R.id.pictureSetupBackHint).setVisibility(enabled ? View.GONE : View.VISIBLE);
     }
 
-    private boolean isShortcutEnabled() {
-        AccessibilityManager manager = getSystemService(AccessibilityManager.class);
-        ComponentName shortcut = new ComponentName(this, PictureMenuShortcutService.class);
+    static boolean isShortcutEnabled(Context context) {
+        AccessibilityManager manager = context.getSystemService(AccessibilityManager.class);
+        ComponentName shortcut = new ComponentName(context, PictureMenuShortcutService.class);
         for (AccessibilityServiceInfo service : manager.getEnabledAccessibilityServiceList(
                 AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
             if (shortcut.equals(ComponentName.unflattenFromString(service.getId()))) return true;

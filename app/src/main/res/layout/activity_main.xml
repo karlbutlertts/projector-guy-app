@@ -9,19 +9,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <Button
-        android:id="@+id/pictureShortcutButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_margin="12dp"
-        android:background="@drawable/btn_primary_bg"
-        android:paddingHorizontal="20dp"
-        android:text="@string/picture_shortcut_title"
-        android:textAllCaps="false"
-        android:textColor="@color/xbj_accent_ink"
-        android:visibility="gone" />
-
     <!-- Shown while checking github.com/apps.json for an app update, right
          after the WebView's own code-lock screen grants access. Hidden the
          rest of the time. -->
