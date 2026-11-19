@@ -34,6 +34,8 @@
 
     <!-- Visibility into hidden factory/engineering menu packages (Android 11+) -->
     <queries>
+        <package android:name="com.newlink.provision" />
+        <package android:name="com.zeasn.launcher" />
         <package android:name="com.sstar.factorymenu" />
         <package android:name="com.sstar.systemcontrol" />
         <package android:name="com.sstar.customizedmenu" />

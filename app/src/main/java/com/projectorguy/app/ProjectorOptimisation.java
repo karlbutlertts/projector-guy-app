@@ -3,12 +3,14 @@ import android.content.Intent;import android.provider.Settings;import android.ap
 
 /** Narrow, reversible XBJ 360 actions; requires explicit device-local ADB authorisation. */
 final class ProjectorOptimisation {
- private final Activity activity;private final SharedPreferences prefs;private final AtomicBoolean busy=new AtomicBoolean();private static final String HELPER="com.oranth.accessibility",STORE="com.mylove.store",LAUNCHER="com.mylove.ui";
+ private final Activity activity;private final SharedPreferences prefs;private static final AtomicBoolean busy=new AtomicBoolean();private static final String HELPER="com.oranth.accessibility",STORE="com.mylove.store",LAUNCHER="com.mylove.ui";
  ProjectorOptimisation(Activity a){activity=a;prefs=a.getSharedPreferences("projector_optimisation",0);}
  private Switch soundSwitch;
  private Switch performanceSwitch;
  private Switch gamingSwitch;
+ private android.app.ProgressDialog speedProgress;
  void show(String model) {
+  if (busy.get()) { Toast.makeText(activity, "Optimisation is already running.", Toast.LENGTH_SHORT).show(); return; }
   if (!Build.DEVICE.startsWith("pioneer5") || !"a5pro".equals(model)) {
    showPerformance(model);
    return;
@@ -17,7 +19,7 @@ final class ProjectorOptimisation {
   panel.setOrientation(LinearLayout.VERTICAL);
   panel.setPadding(24, 12, 24, 12);
   soundSwitch = new Switch(activity);
-  soundSwitch.setText("Navigation sounds");
+  soundSwitch.setText("Remove navigation sounds");
   soundSwitch.setTextOn("ON");
   soundSwitch.setTextOff("OFF");
   soundSwitch.setShowText(true);
@@ -30,7 +32,7 @@ final class ProjectorOptimisation {
   panel.addView(soundSwitch, new LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
   performanceSwitch = new Switch(activity);
-  performanceSwitch.setText("Projector performance");
+  performanceSwitch.setText("Improve projector speed");
   performanceSwitch.setTextOn("ON");
   performanceSwitch.setTextOff("OFF");
   performanceSwitch.setShowText(true);
@@ -42,7 +44,7 @@ final class ProjectorOptimisation {
   panel.addView(performanceSwitch, new LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
   gamingSwitch = new Switch(activity);
-  gamingSwitch.setText("Gaming mode");
+  gamingSwitch.setText("Activate gaming mode 🎮");
   gamingSwitch.setTextOn("ON");
   gamingSwitch.setTextOff("OFF");
   gamingSwitch.setShowText(true);
@@ -101,12 +103,22 @@ final class ProjectorOptimisation {
  }
  private void performance(Boolean enabled) {
   if (!busy.compareAndSet(false, true)) return;
+  if (Boolean.TRUE.equals(enabled)) {
+   speedProgress = new android.app.ProgressDialog(activity);
+   speedProgress.setTitle("Improve projector speed");
+   speedProgress.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+   speedProgress.setMessage("Preparing apps…");
+   speedProgress.setMax(1);
+   speedProgress.setCancelable(false);
+   speedProgress.show();
+  }
   performanceSwitch.setEnabled(false);
   soundSwitch.setEnabled(false);
   performanceSwitch.setEnabled(false);
   gamingSwitch.setEnabled(false);
   new Thread(() -> {
    String error = null;
+   String summary = null;
    boolean active = false;
    String[] keys = {"window_animation_scale", "transition_animation_scale", "animator_duration_scale"};
    String snapshotKey = "animation_snapshot_" + Build.FINGERPRINT;
@@ -131,11 +143,21 @@ final class ProjectorOptimisation {
       for (String key : keys) setAnimation(adb, key, before.getString(key));
       throw failure;
      }
+     if (enabled) {
+      String homeResult = configureLauncherHome(adb, true);
+      summary = compileApps(adb) + "\n" + homeResult;
+      if (!prefs.edit().putBoolean("speed_compilation_" + Build.FINGERPRINT, true).commit()) {
+       throw new Exception("Apps processed, but the completed state could not be saved. Retry to verify.");
+      }
+     } else {
+      configureLauncherHome(adb, false);
+      prefs.edit().remove("speed_compilation_" + Build.FINGERPRINT).commit();
+     }
      if (!enabled && !prefs.edit().remove(snapshotKey).commit()) {
       throw new Exception("Settings restored. Reopen Optimise to check the saved state.");
      }
     }
-    active = prefs.contains(snapshotKey);
+    active = prefs.contains(snapshotKey) && prefs.getBoolean("speed_compilation_" + Build.FINGERPRINT, false);
     for (String key : keys) {
      String value = command(adb, "settings get global " + key);
      active &= !"null".equals(value) && Double.parseDouble(value) == 0;
@@ -146,18 +168,109 @@ final class ProjectorOptimisation {
     busy.set(false);
    }
    String message = error;
+   String completed = summary;
    boolean selected = active;
    activity.runOnUiThread(() -> {
+    if (speedProgress != null) { speedProgress.dismiss(); speedProgress = null; }
     performanceSwitch.setChecked(selected);
     performanceSwitch.setEnabled(true);
     soundSwitch.setEnabled(true);
     gamingSwitch.setEnabled(true);
     if (enabled == null) gamingMode(null); else performanceSwitch.requestFocus();
-    performanceSwitch.setContentDescription("Projector performance " + (selected ? "on" : "off") + ". Press OK to switch.");
-    if (message != null) new AlertDialog.Builder(activity).setTitle("Projector performance")
-      .setMessage(message).setPositiveButton("OK", null).show();
+    performanceSwitch.setContentDescription("Improve projector speed " + (selected ? "on" : "off") + ". Press OK to switch.");
+    if (message != null) new AlertDialog.Builder(activity).setTitle("Improve projector speed")
+      .setMessage(message).setNeutralButton("Restore saved settings", (dialog, which) -> performance(false))
+      .setPositiveButton("OK", null).show();
+    else if (completed != null) new AlertDialog.Builder(activity).setTitle("Optimisation complete")
+      .setMessage(completed + "\n\nMenu animation delays are removed. App compilation is saved on the projector and normally survives restarting. Android may recompile after app or firmware updates. Switching this toggle off restores your saved animation and Home-route settings; compiled app code is retained.")
+      .setPositiveButton("Mate... I know", null).show();
    });
   }, "AnimationPerformance").start();
+ }
+ private String configureLauncherHome(LocalAdb adb, boolean enabled) throws Exception {
+  String fallback = "com.newlink.provision/.FallbackHome";
+  String launcher = "com.zeasn.launcher/.ui.MainActivity";
+  String key = "launcher_home_snapshot_" + Build.FINGERPRINT;
+  android.content.ComponentName component = android.content.ComponentName.unflattenFromString(fallback);
+  if (enabled) {
+   String home = command(adb, "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME");
+   if (!prefs.contains(key) && !home.contains(fallback)) return "Stock launcher Home route already selected or managed by this firmware.";
+   try {
+    if (!command(adb, "su 0 id").contains("uid=0")) return "Launcher Home optimisation is unavailable on this firmware.";
+   } catch (Exception unavailable) {
+    return "Launcher Home optimisation is unavailable on this firmware.";
+   }
+   if (!prefs.contains(key)) {
+    int original = activity.getPackageManager().getComponentEnabledSetting(component);
+    JSONObject snapshot = new JSONObject().put("componentState", original).put("home", fallback);
+    if (!prefs.edit().putString(key, snapshot.toString()).commit()) throw new Exception("Could not save the original Home route.");
+   }
+   command(adb, "su 0 pm disable --user 0 " + fallback);
+   command(adb, "cmd package set-home-activity " + launcher);
+   if (!command(adb, "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME").contains(launcher)) {
+    configureLauncherHome(adb, false);
+    throw new Exception("Could not verify the stock launcher Home route.");
+   }
+   return "Home now opens the existing stock launcher directly, giving it Android Home-process priority.";
+  }
+  if (!prefs.contains(key)) return "";
+  JSONObject snapshot = new JSONObject(prefs.getString(key, "{}"));
+  int state = snapshot.getInt("componentState");
+  String[] verbs = {"default-state", "enable", "disable", "disable-user", "disable-until-used"};
+  if (state < 0 || state >= verbs.length || !fallback.equals(snapshot.getString("home"))) throw new Exception("Invalid saved Home route.");
+  command(adb, "su 0 pm " + verbs[state] + " --user 0 " + fallback);
+  command(adb, "cmd package set-home-activity " + fallback);
+  if (activity.getPackageManager().getComponentEnabledSetting(component) != state ||
+      !command(adb, "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME").contains(fallback)) {
+   throw new Exception("Could not verify the restored Home route. Retry Restore.");
+  }
+  if (!prefs.edit().remove(key).commit()) throw new Exception("Home restored but its snapshot could not be cleared.");
+  return "";
+ }
+ private String compileApps(LocalAdb adb) throws Exception {
+  java.util.Set<String> packages = new java.util.TreeSet<>();
+  packages.add("com.zeasn.launcher");
+  packages.add("com.android.tv.settings");
+  packages.add("com.zhiying.settings");
+  String list = command(adb, "for c in LAUNCHER LEANBACK_LAUNCHER; do cmd package query-activities --brief --components -a android.intent.action.MAIN -c android.intent.category.$c; done");
+  for (String line : list.split("\r?\n")) {
+   int slash = line.indexOf('/');
+   if (slash > 0) {
+    String name = line.substring(0, slash).trim();
+    if (name.matches("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+")) packages.add(name);
+   }
+  }
+  int done = 0;
+  int processed = 0;
+  java.util.List<String> skipped = new java.util.ArrayList<>();
+  for (String name : packages) {
+   String storage = command(adb, "df -k /data | tail -n 1");
+   String[] columns = storage.trim().split("\\s+");
+   if (columns.length < 4 || Long.parseLong(columns[3]) < 400000) {
+    throw new Exception("Stopped to keep at least 400 MB of storage free. " + processed +
+        " apps were processed. Free some storage and retry.");
+   }
+   int progress = done;
+   activity.runOnUiThread(() -> {
+    if (speedProgress != null) {
+     speedProgress.setMax(packages.size());
+     speedProgress.setProgress(progress);
+     speedProgress.setMessage("Preparing " + name);
+    }
+   });
+   String mode = name.equals("com.zeasn.launcher") || name.equals("com.android.tv.settings")
+       || name.equals("com.zhiying.settings") ? "speed" : "speed-profile";
+   String result = adb.shell("timeout 45 cmd package compile -m " + mode + " " + name);
+   if (result.trim().equals("Success")) processed++; else skipped.add(name);
+   done++;
+   int finished = done;
+   activity.runOnUiThread(() -> { if (speedProgress != null) speedProgress.setProgress(finished); });
+  }
+  if (!skipped.isEmpty()) {
+   throw new Exception(processed + " of " + packages.size() + " apps processed. Android could not finish: " +
+       android.text.TextUtils.join(", ", skipped) + ". Retry to finish the optimisation.");
+  }
+  return "Android processed " + processed + " apps for launch optimisation. Apps already compiled may be left as they are.";
  }
  private void setAnimation(LocalAdb adb, String key, String value) throws Exception {
   if ("null".equals(value)) command(adb, "settings delete global " + key);
@@ -186,7 +299,7 @@ final class ProjectorOptimisation {
      throw new Exception("Navigation sound control is currently supported on the A5 Pro.");
     }
     if (enabled != null) {
-     String value = enabled ? "1" : "0";
+     String value = enabled ? "0" : "1";
      command(adb, "setprop persist.play_sound " + value);
      if (!value.equals(command(adb, "getprop persist.play_sound"))) {
       throw new Exception("Android did not save the navigation sound setting.");
@@ -195,7 +308,7 @@ final class ProjectorOptimisation {
       throw new Exception("The projector setting was applied, but the app could not save its preference. Reopen this menu to read the current setting.");
      }
     }
-    current = !"0".equals(command(adb, "getprop persist.play_sound"));
+    current = "0".equals(command(adb, "getprop persist.play_sound"));
    } catch (Exception e) {
     failure = e.getMessage();
    } finally {
@@ -218,7 +331,7 @@ final class ProjectorOptimisation {
      soundSwitch.setEnabled(true);
      performanceSwitch.setEnabled(true);
      gamingSwitch.setEnabled(true);
-     soundSwitch.setContentDescription("Navigation sounds " + (selected ? "on" : "off")
+     soundSwitch.setContentDescription("Remove navigation sounds " + (selected ? "on" : "off")
          + ". Press OK to switch.");
      soundSwitch.requestFocus();
      if (enabled == null) performance(null);
