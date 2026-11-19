@@ -67,8 +67,17 @@ final class ProjectorOptimisation {
       LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
   android.widget.ScrollView scroll = new android.widget.ScrollView(activity);
   scroll.addView(panel);
-  new AlertDialog.Builder(activity).setTitle("Optimise A5 Pro").setView(scroll)
-      .setNegativeButton("Close", null).show();
+  AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("Optimise A5 Pro").setView(scroll)
+      .setNegativeButton("Close", null).create();
+  dialog.show();
+  // Android's default alert width is too narrow for a landscape projector screen.
+  int screenWidth = activity.getWindow().getDecorView().getWidth();
+  if (screenWidth <= 0) screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
+  boolean landscape = activity.getResources().getConfiguration().orientation
+      == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+  if (dialog.getWindow() != null) dialog.getWindow().setLayout(
+      Math.round(screenWidth * (landscape ? 0.74f : 0.92f)),
+      android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
   navigationSounds(null);
  }
  private void gamingMode(Boolean enabled) {
