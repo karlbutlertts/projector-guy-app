@@ -5,7 +5,228 @@ import android.content.Intent;import android.provider.Settings;import android.ap
 final class ProjectorOptimisation {
  private final Activity activity;private final SharedPreferences prefs;private final AtomicBoolean busy=new AtomicBoolean();private static final String HELPER="com.oranth.accessibility",STORE="com.mylove.store",LAUNCHER="com.mylove.ui";
  ProjectorOptimisation(Activity a){activity=a;prefs=a.getSharedPreferences("projector_optimisation",0);}
- void show(String model){if(!"360".equals(model)||!"uiw4068pxm".equals(Build.DEVICE)){new AlertDialog.Builder(activity).setTitle("Projector optimisation").setMessage("These fixes are tested only on the XBJ 360 (uiw4068pxm). No changes were made.").setPositiveButton("OK",null).show();return;}
+ private Switch soundSwitch;
+ private Switch performanceSwitch;
+ private Switch gamingSwitch;
+ void show(String model) {
+  if (!Build.DEVICE.startsWith("pioneer5") || !"a5pro".equals(model)) {
+   showPerformance(model);
+   return;
+  }
+  LinearLayout panel = new LinearLayout(activity);
+  panel.setOrientation(LinearLayout.VERTICAL);
+  panel.setPadding(24, 12, 24, 12);
+  soundSwitch = new Switch(activity);
+  soundSwitch.setText("Navigation sounds");
+  soundSwitch.setTextOn("ON");
+  soundSwitch.setTextOff("OFF");
+  soundSwitch.setShowText(true);
+  styleSwitch(soundSwitch);
+  soundSwitch.setPadding(12, 16, 12, 16);
+  soundSwitch.setTextSize(20);
+  soundSwitch.setEnabled(false);
+  soundSwitch.setContentDescription("Navigation sounds, loading");
+  soundSwitch.setOnClickListener(view -> navigationSounds(soundSwitch.isChecked()));
+  panel.addView(soundSwitch, new LinearLayout.LayoutParams(
+      LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+  performanceSwitch = new Switch(activity);
+  performanceSwitch.setText("Projector performance");
+  performanceSwitch.setTextOn("ON");
+  performanceSwitch.setTextOff("OFF");
+  performanceSwitch.setShowText(true);
+  performanceSwitch.setTextSize(20);
+  performanceSwitch.setPadding(12, 16, 12, 16);
+  performanceSwitch.setEnabled(false);
+  styleSwitch(performanceSwitch);
+  performanceSwitch.setOnClickListener(view -> performance(performanceSwitch.isChecked()));
+  panel.addView(performanceSwitch, new LinearLayout.LayoutParams(
+      LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+  gamingSwitch = new Switch(activity);
+  gamingSwitch.setText("Gaming mode");
+  gamingSwitch.setTextOn("ON");
+  gamingSwitch.setTextOff("OFF");
+  gamingSwitch.setShowText(true);
+  gamingSwitch.setTextSize(20);
+  gamingSwitch.setPadding(12, 16, 12, 16);
+  gamingSwitch.setEnabled(false);
+  styleSwitch(gamingSwitch);
+  gamingSwitch.setOnClickListener(view -> gamingMode(gamingSwitch.isChecked()));
+  panel.addView(gamingSwitch, new LinearLayout.LayoutParams(
+      LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+  new AlertDialog.Builder(activity).setTitle("Optimise A5 Pro").setView(panel)
+      .setNegativeButton("Close", null).show();
+  navigationSounds(null);
+ }
+ private void gamingMode(Boolean enabled) {
+  if (!busy.compareAndSet(false, true)) return;
+  soundSwitch.setEnabled(false);
+  performanceSwitch.setEnabled(false);
+  gamingSwitch.setEnabled(false);
+  new Thread(() -> {
+   String error = null;
+   boolean current = false;
+   try (LocalAdb adb = new LocalAdb(activity)) {
+    if (enabled != null) {
+     String value = enabled ? "1" : "0";
+     command(adb, "settings put secure minimal_post_processing_allowed " + value);
+     if (!value.equals(command(adb, "settings get secure minimal_post_processing_allowed"))) {
+      throw new Exception("Android did not save gaming mode.");
+     }
+    }
+    current = "1".equals(command(adb, "settings get secure minimal_post_processing_allowed"));
+   } catch (Exception failure) {
+    error = failure.getMessage();
+   } finally {
+    busy.set(false);
+   }
+   String message = error;
+   boolean selected = current;
+   activity.runOnUiThread(() -> {
+    gamingSwitch.setChecked(selected);
+    soundSwitch.setEnabled(true);
+    performanceSwitch.setEnabled(true);
+    gamingSwitch.setEnabled(true);
+    gamingSwitch.setContentDescription("Gaming mode " + (selected ? "on" : "off") + ". Press OK to switch.");
+    if (enabled == null) soundSwitch.requestFocus(); else gamingSwitch.requestFocus();
+    if (message != null) new AlertDialog.Builder(activity).setTitle("Gaming mode")
+      .setMessage(message).setPositiveButton("OK", null).show();
+   });
+  }, "GamingMode").start();
+ }
+ private void styleSwitch(Switch control) {
+  control.setSwitchMinWidth((int)(68 * activity.getResources().getDisplayMetrics().density));
+  control.setThumbDrawable(activity.getDrawable(R.drawable.optimise_switch_thumb));
+  control.setTrackDrawable(activity.getDrawable(R.drawable.optimise_switch_track));
+  control.setBackgroundResource(R.drawable.optimise_switch_focus);
+ }
+ private void performance(Boolean enabled) {
+  if (!busy.compareAndSet(false, true)) return;
+  performanceSwitch.setEnabled(false);
+  soundSwitch.setEnabled(false);
+  performanceSwitch.setEnabled(false);
+  gamingSwitch.setEnabled(false);
+  new Thread(() -> {
+   String error = null;
+   boolean active = false;
+   String[] keys = {"window_animation_scale", "transition_animation_scale", "animator_duration_scale"};
+   String snapshotKey = "animation_snapshot_" + Build.FINGERPRINT;
+   try (LocalAdb adb = new LocalAdb(activity)) {
+    JSONObject before = new JSONObject();
+    for (String key : keys) before.put(key, command(adb, "settings get global " + key));
+    if (enabled != null) {
+     JSONObject target;
+     if (enabled) {
+      if (!prefs.contains(snapshotKey) &&
+          !prefs.edit().putString(snapshotKey, before.toString()).commit()) {
+       throw new Exception("Could not save the original animation settings.");
+      }
+      target = new JSONObject();
+      for (String key : keys) target.put(key, "0");
+     } else {
+      target = new JSONObject(prefs.getString(snapshotKey, before.toString()));
+     }
+     try {
+      for (String key : keys) setAnimation(adb, key, target.getString(key));
+     } catch (Exception failure) {
+      for (String key : keys) setAnimation(adb, key, before.getString(key));
+      throw failure;
+     }
+     if (!enabled && !prefs.edit().remove(snapshotKey).commit()) {
+      throw new Exception("Settings restored. Reopen Optimise to check the saved state.");
+     }
+    }
+    active = prefs.contains(snapshotKey);
+    for (String key : keys) {
+     String value = command(adb, "settings get global " + key);
+     active &= !"null".equals(value) && Double.parseDouble(value) == 0;
+    }
+   } catch (Exception failure) {
+    error = failure.getMessage();
+   } finally {
+    busy.set(false);
+   }
+   String message = error;
+   boolean selected = active;
+   activity.runOnUiThread(() -> {
+    performanceSwitch.setChecked(selected);
+    performanceSwitch.setEnabled(true);
+    soundSwitch.setEnabled(true);
+    gamingSwitch.setEnabled(true);
+    if (enabled == null) gamingMode(null); else performanceSwitch.requestFocus();
+    performanceSwitch.setContentDescription("Projector performance " + (selected ? "on" : "off") + ". Press OK to switch.");
+    if (message != null) new AlertDialog.Builder(activity).setTitle("Projector performance")
+      .setMessage(message).setPositiveButton("OK", null).show();
+   });
+  }, "AnimationPerformance").start();
+ }
+ private void setAnimation(LocalAdb adb, String key, String value) throws Exception {
+  if ("null".equals(value)) command(adb, "settings delete global " + key);
+  else {
+   if (!value.matches("[0-9]+(\\.[0-9]+)?")) throw new Exception("Invalid saved animation value.");
+   command(adb, "settings put global " + key + " " + value);
+  }
+  if (!value.equals(command(adb, "settings get global " + key))) {
+   throw new Exception("Could not verify animation setting " + key);
+  }
+ }
+ private void navigationSounds(Boolean enabled) {
+  if (!busy.compareAndSet(false, true)) return;
+  soundSwitch.setEnabled(false);
+  performanceSwitch.setEnabled(false);
+  gamingSwitch.setEnabled(false);
+  new Thread(() -> {
+   String failure = null;
+   boolean connected = false;
+   boolean current = false;
+   try (LocalAdb adb = new LocalAdb(activity)) {
+    connected = true;
+    String device = command(adb, "getprop ro.product.device");
+    if (!device.startsWith("pioneer5") ||
+        !command(adb, "pm path com.zhiying.settings").contains("package:")) {
+     throw new Exception("Navigation sound control is currently supported on the A5 Pro.");
+    }
+    if (enabled != null) {
+     String value = enabled ? "1" : "0";
+     command(adb, "setprop persist.play_sound " + value);
+     if (!value.equals(command(adb, "getprop persist.play_sound"))) {
+      throw new Exception("Android did not save the navigation sound setting.");
+     }
+     if (!prefs.edit().putBoolean("navigation_sounds", enabled).commit()) {
+      throw new Exception("The projector setting was applied, but the app could not save its preference. Reopen this menu to read the current setting.");
+     }
+    }
+    current = !"0".equals(command(adb, "getprop persist.play_sound"));
+   } catch (Exception e) {
+    failure = e.getMessage();
+   } finally {
+    busy.set(false);
+   }
+   String error = failure;
+   boolean needsConnection = !connected;
+   boolean selected = current;
+   activity.runOnUiThread(() -> {
+    if (needsConnection) {
+     setupGuide("Retry navigation sounds", () -> navigationSounds(enabled));
+    } else if (error != null) {
+     soundSwitch.setEnabled(true);
+     performanceSwitch.setEnabled(true);
+     gamingSwitch.setEnabled(true);
+     new AlertDialog.Builder(activity).setTitle("Navigation click sounds")
+       .setMessage(error).setPositiveButton("OK", null).show();
+    } else {
+     soundSwitch.setChecked(selected);
+     soundSwitch.setEnabled(true);
+     performanceSwitch.setEnabled(true);
+     gamingSwitch.setEnabled(true);
+     soundSwitch.setContentDescription("Navigation sounds " + (selected ? "on" : "off")
+         + ". Press OK to switch.");
+     soundSwitch.requestFocus();
+     if (enabled == null) performance(null);
+    }
+   });
+  }, "NavigationSounds").start();
+ }
+ private void showPerformance(String model){if(!"360".equals(model)||!"uiw4068pxm".equals(Build.DEVICE)){new AlertDialog.Builder(activity).setTitle("Projector optimisation").setMessage("These fixes are tested only on the XBJ 360 (uiw4068pxm). No changes were made.").setPositiveButton("OK",null).show();return;}
   LinearLayout box=new LinearLayout(activity);box.setOrientation(1);box.setPadding(28,16,28,16);TextView note=new TextView(activity);note.setText("Remove the Netflix focus helper and turn off animation delays. Netflix remote navigation may change. Your apps, accounts and home layout are kept.\n\nFirst use needs USB debugging enabled and approval of Projector Guy's connection on this projector. If debugging is off, we will guide you through enabling it in Settings.");box.addView(note);CheckBox store=new CheckBox(activity);store.setText("Also disable the bundled app store");box.addView(store);
   new AlertDialog.Builder(activity).setTitle("Optimise XBJ 360").setView(box).setPositiveButton("Optimise",(d,w)->run(false,store.isChecked())).setNeutralButton("Restore",(d,w)->run(true,false)).setNegativeButton("Cancel",null).show();
  }

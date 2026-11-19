@@ -80,6 +80,21 @@
     insertControl(tools, 'sideSoundControl', 'Sound Settings', openPanel,
       'M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12');
 
+    if (typeof bridge.hasNavigationSoundControl === 'function' && bridge.hasNavigationSoundControl()) {
+      insertControl(tools, 'sideOptimiseControls', 'Optimise A5 Pro', () => {
+        bridge.showProjectorOptimisation('a5pro');
+        return true;
+      }, 'M13 2 4 14h7l-1 8 10-13h-7z');
+      const optimise = document.getElementById('sideOptimiseControls');
+      function updateOptimiseVisibility() {
+        const visible = typeof loadModel === 'function' && loadModel() === 'a5pro';
+        if (optimise.hidden === visible) optimise.hidden = !visible;
+      }
+      new MutationObserver(updateOptimiseVisibility).observe(sidebar,
+        {attributes: true, subtree: true});
+      updateOptimiseVisibility();
+    }
+
     const view = document.getElementById('viewBody');
     function addShortcutSetup() {
       const changeModel = view.querySelector('.panel-row [data-action="change-model"]');

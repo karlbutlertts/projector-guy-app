@@ -57,6 +57,11 @@ public class AndroidBridge {
     private ProjectorOptimisation optimisation;
 
     @JavascriptInterface
+    public boolean hasNavigationSoundControl() {
+        return android.os.Build.DEVICE.startsWith("pioneer5");
+    }
+
+    @JavascriptInterface
     public void showProjectorOptimisation(String model) {
         if (context instanceof android.app.Activity) {
             android.app.Activity a=(android.app.Activity)context;

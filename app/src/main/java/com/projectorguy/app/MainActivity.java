@@ -272,6 +272,10 @@ public class MainActivity extends AppCompatActivity {
     /** Keep the native scroll fallback for plain pages without catalogue navigation. */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_MENU && event.getAction() == KeyEvent.ACTION_DOWN) {
+            new ProjectorOptimisation(this).show(android.os.Build.DEVICE.startsWith("pioneer5") ? "a5pro" : "auto");
+            return true;
+        }
         if (webView != null && !isCataloguePage(webView.getUrl())
                 && event.getAction() == KeyEvent.ACTION_DOWN) {
             switch (event.getKeyCode()) {
