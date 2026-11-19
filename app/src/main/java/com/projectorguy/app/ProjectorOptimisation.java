@@ -8,6 +8,7 @@ final class ProjectorOptimisation {
  private Switch soundSwitch;
  private Switch performanceSwitch;
  private Switch gamingSwitch;
+ private Switch touchSwitch;
  private android.app.ProgressDialog speedProgress;
  void show(String model) {
   if (busy.get()) { Toast.makeText(activity, "Optimisation is already running.", Toast.LENGTH_SHORT).show(); return; }
@@ -51,11 +52,22 @@ final class ProjectorOptimisation {
   gamingSwitch.setTextSize(20);
   gamingSwitch.setPadding(12, 16, 12, 16);
   gamingSwitch.setEnabled(false);
+  if (touchSwitch != null) touchSwitch.setEnabled(false);
   styleSwitch(gamingSwitch);
   gamingSwitch.setOnClickListener(view -> gamingMode(gamingSwitch.isChecked()));
   panel.addView(gamingSwitch, new LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-  new AlertDialog.Builder(activity).setTitle("Optimise A5 Pro").setView(panel)
+  touchSwitch = new Switch(activity);
+  touchSwitch.setText("Auto-hide touchscreen controls");
+  touchSwitch.setTextOn("ON"); touchSwitch.setTextOff("OFF"); touchSwitch.setShowText(true);
+  touchSwitch.setTextSize(20); touchSwitch.setPadding(12, 16, 12, 16);
+  styleSwitch(touchSwitch); touchSwitch.setEnabled(false);
+  touchSwitch.setOnClickListener(view -> touchscreenControls(touchSwitch.isChecked()));
+  panel.addView(touchSwitch, new LinearLayout.LayoutParams(
+      LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+  android.widget.ScrollView scroll = new android.widget.ScrollView(activity);
+  scroll.addView(panel);
+  new AlertDialog.Builder(activity).setTitle("Optimise A5 Pro").setView(scroll)
       .setNegativeButton("Close", null).show();
   navigationSounds(null);
  }
@@ -64,6 +76,7 @@ final class ProjectorOptimisation {
   soundSwitch.setEnabled(false);
   performanceSwitch.setEnabled(false);
   gamingSwitch.setEnabled(false);
+  if (touchSwitch != null) touchSwitch.setEnabled(false);
   new Thread(() -> {
    String error = null;
    boolean current = false;
@@ -88,12 +101,42 @@ final class ProjectorOptimisation {
     soundSwitch.setEnabled(true);
     performanceSwitch.setEnabled(true);
     gamingSwitch.setEnabled(true);
+    if (touchSwitch != null) touchSwitch.setEnabled(true);
     gamingSwitch.setContentDescription("Gaming mode " + (selected ? "on" : "off") + ". Press OK to switch.");
-    if (enabled == null) soundSwitch.requestFocus(); else gamingSwitch.requestFocus();
+    if (enabled == null) touchscreenControls(null); else gamingSwitch.requestFocus();
     if (message != null) new AlertDialog.Builder(activity).setTitle("Gaming mode")
       .setMessage(message).setPositiveButton("OK", null).show();
    });
   }, "GamingMode").start();
+ }
+ private void touchscreenControls(Boolean enabled) {
+  if (!busy.compareAndSet(false, true)) return;
+  soundSwitch.setEnabled(false); performanceSwitch.setEnabled(false);
+  gamingSwitch.setEnabled(false); touchSwitch.setEnabled(false);
+  new Thread(() -> {
+   String error = null; boolean selected = false;
+   try (LocalAdb adb = new LocalAdb(activity)) {
+    if (enabled != null) TouchOverlayControl.set(activity, adb, enabled);
+    else if (TouchOverlayControl.enabled(activity) && !TouchOverlayControl.running(adb))
+      TouchOverlayControl.set(activity, adb, true);
+    selected = TouchOverlayControl.enabled(activity) && TouchOverlayControl.running(adb);
+   } catch (Exception failure) { error = failure.getMessage(); }
+   finally { busy.set(false); }
+   String message = error; boolean checked = selected;
+   activity.runOnUiThread(() -> {
+    touchSwitch.setChecked(checked);
+    soundSwitch.setEnabled(true); performanceSwitch.setEnabled(true);
+    gamingSwitch.setEnabled(true); touchSwitch.setEnabled(true);
+    touchSwitch.setContentDescription("Auto-hide touchscreen controls " + (checked ? "on" : "off") + ". Press OK to switch.");
+    if (enabled == null) soundSwitch.requestFocus(); else touchSwitch.requestFocus();
+    if (message != null) new AlertDialog.Builder(activity).setTitle("Auto-hide touchscreen controls")
+      .setMessage(message).setPositiveButton("OK", null).show();
+    else if (Boolean.TRUE.equals(enabled)) new AlertDialog.Builder(activity)
+      .setTitle("Auto-hide touchscreen controls")
+      .setMessage("Touch the built-in screen to show its controls. They hide again after five seconds without touch. This preference is saved for reboot. Switch OFF to restore the normal controls.")
+      .setPositiveButton("Mate... I know", null).show();
+   });
+  }, "TouchOverlayControl").start();
  }
  private void styleSwitch(Switch control) {
   control.setSwitchMinWidth((int)(68 * activity.getResources().getDisplayMetrics().density));
@@ -116,6 +159,7 @@ final class ProjectorOptimisation {
   soundSwitch.setEnabled(false);
   performanceSwitch.setEnabled(false);
   gamingSwitch.setEnabled(false);
+  if (touchSwitch != null) touchSwitch.setEnabled(false);
   new Thread(() -> {
    String error = null;
    String summary = null;
@@ -176,6 +220,7 @@ final class ProjectorOptimisation {
     performanceSwitch.setEnabled(true);
     soundSwitch.setEnabled(true);
     gamingSwitch.setEnabled(true);
+    if (touchSwitch != null) touchSwitch.setEnabled(true);
     if (enabled == null) gamingMode(null); else performanceSwitch.requestFocus();
     performanceSwitch.setContentDescription("Improve projector speed " + (selected ? "on" : "off") + ". Press OK to switch.");
     if (message != null) new AlertDialog.Builder(activity).setTitle("Improve projector speed")
@@ -287,6 +332,7 @@ final class ProjectorOptimisation {
   soundSwitch.setEnabled(false);
   performanceSwitch.setEnabled(false);
   gamingSwitch.setEnabled(false);
+  if (touchSwitch != null) touchSwitch.setEnabled(false);
   new Thread(() -> {
    String failure = null;
    boolean connected = false;
@@ -324,6 +370,7 @@ final class ProjectorOptimisation {
      soundSwitch.setEnabled(true);
      performanceSwitch.setEnabled(true);
      gamingSwitch.setEnabled(true);
+    if (touchSwitch != null) touchSwitch.setEnabled(true);
      new AlertDialog.Builder(activity).setTitle("Navigation click sounds")
        .setMessage(error).setPositiveButton("OK", null).show();
     } else {
@@ -331,6 +378,7 @@ final class ProjectorOptimisation {
      soundSwitch.setEnabled(true);
      performanceSwitch.setEnabled(true);
      gamingSwitch.setEnabled(true);
+    if (touchSwitch != null) touchSwitch.setEnabled(true);
      soundSwitch.setContentDescription("Remove navigation sounds " + (selected ? "on" : "off")
          + ". Press OK to switch.");
      soundSwitch.requestFocus();
