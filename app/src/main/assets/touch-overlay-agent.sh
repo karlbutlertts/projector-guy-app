@@ -23,17 +23,29 @@ cleanup() {
  [ -n "$reader" ] && kill "$reader" 2>/dev/null
  [ -n "$reader" ] && wait "$reader" 2>/dev/null
  cmd appops set "$PKG" SYSTEM_ALERT_WINDOW "$original"
- rm -f "$DIR/running" "$DIR/events" "$DIR/enabled" "$DIR/guard/pid"
+ rm -f "$DIR/running" "$DIR/events" "$DIR/enabled" "$DIR/guard/pid" "$DIR/state"
  rmdir "$DIR/guard" 2>/dev/null
 }
 trap cleanup EXIT HUP INT TERM
+# Publish liveness before waiting: some A5s power down touch input when folded.
+printf '%s\n' "$$" >"$DIR/running"
+cmd appops set "$PKG" SYSTEM_ALERT_WINDOW ignore || exit 1
+printf '%s\n' waiting-for-touchscreen >"$DIR/state"
 input=
-for name in /sys/class/input/event*/device/name; do
- if [ "$(cat "$name")" = fts_ts ]; then
-  event=${name%/device/name}; input=/dev/input/${event##*/}; break
- fi
+while [ -f "$DIR/enabled" ] && [ -f "$PREF_FLAG" ]; do
+ for name in /sys/class/input/event*/device/name; do
+  event=${name%/device/name}; node=/dev/input/${event##*/}
+  if [ "$(cat "$name")" = fts_ts ]; then input=$node; break; fi
+  caps=$(getevent -lp "$node" 2>/dev/null)
+  if printf '%s' "$caps" | grep -q ABS_MT_POSITION_X &&
+     printf '%s' "$caps" | grep -q ABS_MT_POSITION_Y &&
+     printf '%s' "$caps" | grep -q INPUT_PROP_DIRECT; then input=$node; break; fi
+ done
+ [ -n "$input" ] && break
+ sleep 1
 done
-[ -n "$input" ] || exit 1
+[ -n "$input" ] || exit 0
+printf '%s\n' reading-touchscreen >"$DIR/state"
 rm -f "$DIR/events"
 mkfifo -m 600 "$DIR/events" || exit 1
 getevent -lt "$input" >"$DIR/events" 2>"$DIR/input-error" &

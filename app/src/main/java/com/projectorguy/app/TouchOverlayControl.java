@@ -58,9 +58,16 @@ final class TouchOverlayControl {
                             .replace("@PREF_FLAG@", flag.getAbsolutePath());
                     script = Base64.encodeToString(source.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
                 }
-                root(adb, "mkdir -p " + DIR + " && chmod 700 " + DIR
-                        + " && printf %s " + script + " | base64 -d > " + DIR + "/agent.sh"
-                        + " && chmod 700 " + DIR + "/agent.sh"
+                root(adb, "mkdir -p " + DIR + " && chmod 700 " + DIR + " && : > " + DIR + "/agent.sh");
+                // Local ADB negotiates 4096-byte OPEN payloads. Bound every command.
+                for(int offset=0;offset<script.length();offset+=2048) {
+                    String chunk=script.substring(offset,Math.min(script.length(),offset+2048));
+                    root(adb,"printf %s " + chunk + " | base64 -d >> " + DIR + "/agent.sh");
+                }
+                int expected=Base64.decode(script,Base64.NO_WRAP).length;
+                if(!String.valueOf(expected).equals(root(adb,"wc -c < " + DIR + "/agent.sh")))
+                    throw new Exception("Touchscreen helper copy could not be verified.");
+                root(adb, "chmod 700 " + DIR + "/agent.sh"
                         + " && printf %s " + original + " > " + DIR + "/original-mode"
                         + " && touch " + DIR + "/enabled");
                 root(adb, "CLASSPATH='" + context.getApplicationInfo().sourceDir.replace("'", "'\\''")
