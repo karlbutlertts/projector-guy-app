@@ -80,6 +80,42 @@ final class ProjectorOptimisation {
       android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
   navigationSounds(null);
  }
+ interface SetupProgress { void update(String message,int done,int total); }
+ private SetupProgress setupProgress;
+ void applySetup(JSONObject choices,SetupProgress progress) throws Exception {
+  if(!Build.DEVICE.startsWith("pioneer5")) throw new Exception("A5 Pro only");
+  if(!busy.compareAndSet(false,true)) throw new Exception("Optimisation already running");
+  setupProgress=progress;
+  try(LocalAdb adb=new LocalAdb(activity)) {
+   if(!command(adb,"su 0 id").contains("uid=0")) throw new Exception("Root access was not approved");
+   if(choices.optBoolean("sounds")) {
+    progress.update("Removing navigation sounds…",0,4);
+    command(adb,"setprop persist.play_sound 0");
+    if(!"0".equals(command(adb,"getprop persist.play_sound")))throw new Exception("Navigation sound setting did not save");
+    prefs.edit().putBoolean("navigation_sounds",true).commit();
+   }
+   if(choices.optBoolean("gaming")) {
+    progress.update("Saving gaming preference…",1,4);
+    command(adb,"settings put secure minimal_post_processing_allowed 1");
+    if(!"1".equals(command(adb,"settings get secure minimal_post_processing_allowed")))throw new Exception("Gaming preference did not save");
+   }
+   if(choices.optBoolean("touch")) {
+    progress.update("Saving touchscreen auto-hide…",2,4);
+    TouchOverlayControl.set(activity,adb,true);
+   }
+   if(choices.optBoolean("speed")) {
+    String[] keys={"window_animation_scale","transition_animation_scale","animator_duration_scale"};
+    String snapshotKey="animation_snapshot_"+Build.FINGERPRINT;
+    JSONObject before=new JSONObject();for(String key:keys)before.put(key,command(adb,"settings get global "+key));
+    if(!prefs.contains(snapshotKey)&&!prefs.edit().putString(snapshotKey,before.toString()).commit())throw new Exception("Could not save original animations");
+    for(String key:keys)setAnimation(adb,key,"0");
+    progress.update("Preparing the stock launcher…",0,1);configureLauncherHome(adb,true);
+    compileApps(adb);
+    if(!prefs.edit().putBoolean("speed_compilation_"+Build.FINGERPRINT,true).commit())throw new Exception("Could not save speed state");
+   }
+   progress.update("Optimisation verified and saved",1,1);
+  }finally{setupProgress=null;busy.set(false);}
+ }
  private void gamingMode(Boolean enabled) {
   if (!busy.compareAndSet(false, true)) return;
   soundSwitch.setEnabled(false);
@@ -298,12 +334,13 @@ final class ProjectorOptimisation {
   int processed = 0;
   java.util.List<String> skipped = new java.util.ArrayList<>();
   for (String name : packages) {
-   String storage = command(adb, "df -k /data | tail -n 1");
-   String[] columns = storage.trim().split("\\s+");
-   if (columns.length < 4 || Long.parseLong(columns[3]) < 400000) {
-    throw new Exception("Stopped to keep at least 400 MB of storage free. " + processed +
-        " apps were processed. Free some storage and retry.");
+   long available = new android.os.StatFs(android.os.Environment.getDataDirectory().getAbsolutePath()).getAvailableBytes();
+   long reserve = 400L * 1024 * 1024;
+   if (available < reserve) {
+    throw new Exception("App preparation paused: " + (available / (1024 * 1024)) + " MiB free. " + processed +
+        " apps processed. We keep a 400 MiB reserve. Your other selected settings are already saved. Free some storage and retry, or leave Improve projector speed unticked to finish the remaining setup.");
    }
+   if(setupProgress!=null)setupProgress.update("Preparing "+name,done,packages.size());
    int progress = done;
    activity.runOnUiThread(() -> {
     if (speedProgress != null) {

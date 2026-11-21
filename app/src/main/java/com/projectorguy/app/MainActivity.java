@@ -118,6 +118,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if(android.os.Build.DEVICE.startsWith("pioneer5")) {
+            android.content.SharedPreferences setup=getSharedPreferences("a5_setup",0);
+            if(!setup.contains("schema")) {
+                boolean upgrading=false;
+                try { PackageInfo app=getPackageManager().getPackageInfo(getPackageName(),0);
+                    upgrading=!BuildConfig.DEBUG && app.firstInstallTime<app.lastUpdateTime;
+                } catch(Exception ignored) {}
+                setup.edit().putInt("schema",1).putBoolean("complete",setup.getBoolean("complete",false)||upgrading).commit();
+            }
+        }
         enableImmersiveMode();
         setContentView(R.layout.activity_main);
         if (!BuildConfig.DEBUG) requestStoragePermissions();
@@ -186,6 +196,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                if(BuildConfig.A5_SETUP_ENABLED && (getIntent().hasExtra("setup_destination") || getSharedPreferences("a5_setup",0).getBoolean("complete",false))) {
+                    openCompletedSetupDestination(getIntent().getStringExtra("setup_destination"));
+                }
+                if(BuildConfig.A5_SETUP_ENABLED && !getIntent().hasExtra("setup_destination") && !getSharedPreferences("a5_setup",0).getBoolean("complete",false)) {
+                    view.evaluateJavascript("(function(){if(window._pgSetupHook||typeof selectModel!=='function')return;window._pgSetupHook=true;const original=selectModel;selectModel=function(model){if(model==='a5pro'&&AndroidBridge.hasNavigationSoundControl()){saveModel(model);AndroidBridge.startA5Setup(localStorage.getItem('xbj_username')||'');return;}original(model);};if(loadSession()&&loadModel()==='a5pro'&&AndroidBridge.hasNavigationSoundControl())AndroidBridge.startA5Setup(localStorage.getItem('xbj_username')||'');})()",null);
+                }
                 Uri uri = Uri.parse(url);
                 if (!trusted(uri) || !isCataloguePage(url)) return;
                 try {
@@ -222,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
-            webView.loadUrl(BuildConfig.DEBUG ? "file:///android_asset/sidebar/index.html" : START_URL);
+            webView.loadUrl(START_URL);
         }
 
         // Check for updates unconditionally on every cold launch, rather than
@@ -259,6 +275,12 @@ public class MainActivity extends AppCompatActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) enableImmersiveMode();
+    }
+
+    private void openCompletedSetupDestination(String destination) {
+        if(webView==null)return;
+        String route="entertainment".equals(destination)?"setView('entertainment');if(!entertainmentIsUnlocked())openEntOverlay();":"setView('home');";
+        webView.evaluateJavascript("(function(){let n=0;let t=setInterval(()=>{if(++n>120){clearInterval(t);return;}if(typeof loadSession==='function'&&loadSession()&&typeof enterShell==='function'){clearInterval(t);document.getElementById('lock').classList.add('hidden');document.getElementById('projectorWelcome')?.classList.add('hidden');saveModel('a5pro');enterShell('home');"+route+"}},500)})()",null);
     }
 
     private static boolean isCataloguePage(String url) {
@@ -789,6 +811,11 @@ public class MainActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleInstallResult(intent);
+        if(BuildConfig.A5_SETUP_ENABLED && !intent.hasExtra(PackageInstaller.EXTRA_STATUS)
+                && getSharedPreferences("a5_setup",0).getBoolean("complete",false)) {
+            if(webView!=null && isCataloguePage(webView.getUrl())) openCompletedSetupDestination(intent.getStringExtra("setup_destination"));
+            else if(webView!=null) webView.loadUrl(START_URL);
+        }
     }
 
     private void handleInstallResult(Intent intent) {

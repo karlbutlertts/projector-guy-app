@@ -57,6 +57,12 @@ public class AndroidBridge {
     private ProjectorOptimisation optimisation;
 
     @JavascriptInterface
+    public void startA5Setup(String username) {
+        if(!BuildConfig.A5_SETUP_ENABLED || !Build.DEVICE.startsWith("pioneer5") || !(context instanceof android.app.Activity) || context.getSharedPreferences("a5_setup",0).getBoolean("complete",false))return;
+        android.app.Activity a=(android.app.Activity)context;
+        a.runOnUiThread(()->{a.startActivity(new Intent(a,A5SetupActivity.class).putExtra("setup_username",username));a.finish();});
+    }
+    @JavascriptInterface
     public boolean hasNavigationSoundControl() {
         return android.os.Build.DEVICE.startsWith("pioneer5");
     }
