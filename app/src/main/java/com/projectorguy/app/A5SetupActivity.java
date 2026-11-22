@@ -139,9 +139,10 @@ public class A5SetupActivity extends Activity {
     getSharedPreferences("a5_setup",0).edit().putString("optimise",json).putBoolean("complete",true).commit();publish("optimised","Your optimisation choices are saved.",null,1,1);
    }catch(Exception e){fail(e);}finally{busy.set(false);}
   },"A5SetupOptimise").start();}
+  @JavascriptInterface public void markComplete(){if(!busy.get())getSharedPreferences("a5_setup",0).edit().putBoolean("complete",true).commit();}
   @JavascriptInterface public void endCard(){getSharedPreferences("a5_setup",0).edit().putBoolean("complete",true).commit();runOnUiThread(()->web.loadUrl("file:///android_asset/setup/endcard.html"));}
   @JavascriptInterface public String username(){return getIntent().getStringExtra("setup_username")==null?"":getIntent().getStringExtra("setup_username");}
   @JavascriptInterface public void openDestination(String destination){if(busy.get())return;getSharedPreferences("a5_setup",0).edit().putBoolean("complete",true).commit();runOnUiThread(()->{Intent intent=new Intent(A5SetupActivity.this,MainActivity.class);intent.putExtra("setup_destination","entertainment".equals(destination)?"entertainment":"home");intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);startActivity(intent);finish();});}
  }
- @Override public void onBackPressed(){if(busy.get())return;web.evaluateJavascript("document.querySelector('[data-action=back]')?.click()",null);}
+ @Override public void onBackPressed(){if(busy.get())return;web.evaluateJavascript("window.pgSetupBack?.()",null);}
 }

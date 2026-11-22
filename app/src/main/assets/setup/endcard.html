@@ -7,13 +7,13 @@
     <div class="pg-end-shade"></div>
     <header class="pg-end-header"><span>XBJ <b>PROJECTOR GUY</b></span><span>YOUR A5 IS READY</span></header>
     <main class="pg-end-copy">
-      <p class="pg-end-whisper">Pssst… 👀</p>
-      <h2>You’ve only just<br>scratched the surface.</h2>
-      <p class="pg-end-message">Don’t forget to unlock the Entertainment section when you’re ready<br class="pg-wide-break"> to see what your projector can really do. 🎬🍿</p>
-      <div class="pg-end-actions"><button type="button" class="pg-end-primary" data-action="unlock">Unlock Entertainment section</button><button type="button" data-action="later">I’ll explore later</button></div>
+      <p class="pg-end-whisper">Pssst&#8230; &#128064;</p>
+      <h2>The big screen.<br>The bigger possibilities.</h2>
+      <p class="pg-end-message">Unlock the Entertainment section when you&#8217;re ready<br class="pg-wide-break"> to see what your projector can really do. &#127916;&#127871;</p>
+      <div class="pg-end-actions"><button type="button" class="pg-end-primary" data-action="unlock">Unlock Entertainment &#8594;</button><button type="button" data-action="later">I&#8217;ll explore later</button></div>
       <p class="pg-end-response" aria-live="polite"></p>
     </main>
-    <footer>THE BIG SCREEN. A LITTLE MORE POSSIBILITY.</footer>
+    <footer>ALL SET UP. NOW MAKE IT YOURS.</footer>
   </section>
 </div>
 <style>
@@ -23,7 +23,7 @@
 #pg-ent-end .pg-end-posters{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.65;z-index:-4;}
 #pg-ent-end .pg-end-watermark{position:absolute;inset:10% 15% 10%;display:flex;align-items:center;justify-content:center;gap:3%;opacity:.09;z-index:-3;font-size:8cqw;font-weight:700;line-height:.95;letter-spacing:-.4cqw;}
 #pg-ent-end .pg-end-watermark img{width:40%;height:auto;object-fit:contain;mix-blend-mode:screen;}
-#pg-ent-end .pg-end-shade{position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,#0b1527ed 0%,#0b1527ad 48%,#0b152759 100%),linear-gradient(0deg,#0b1527 0%,#0b152735 48%,#0b152780 100%);}
+#pg-ent-end .pg-end-shade{position:absolute;inset:0;z-index:-2;background:linear-gradient(90deg,#0b1527ed 0%,#0b1527e8 48%,#0b152759 100%),linear-gradient(0deg,#0b1527 0%,#0b152735 48%,#0b152780 100%);}
 #pg-ent-end .pg-end-header{display:flex;justify-content:space-between;align-items:center;padding:3cqw 4.2cqw;font-size:1.05cqw;letter-spacing:.1cqw;color:#b9c9df;}
 #pg-ent-end .pg-end-header b{margin-left:.6cqw;color:#eef4ff;font-weight:500;}
 #pg-ent-end .pg-end-header>span:last-child{font-size:.9cqw;}
@@ -40,6 +40,6 @@
 @media(max-width:520px){#pg-ent-end .pg-end-screen{aspect-ratio:auto;min-height:410px;}#pg-ent-end .pg-end-header{font-size:11px;padding:20px;}#pg-ent-end .pg-end-header>span:last-child{display:none;}#pg-ent-end .pg-end-copy{padding:24px;}#pg-ent-end .pg-end-whisper{font-size:18px;}#pg-ent-end h2{font-size:32px;}#pg-ent-end .pg-end-message{font-size:15px;margin:20px 0;}#pg-ent-end .pg-wide-break{display:none;}#pg-ent-end button{font-size:13px;padding:12px;}#pg-ent-end .pg-end-actions{gap:10px;flex-wrap:wrap;}#pg-ent-end footer{font-size:10px;left:24px;bottom:18px;}#pg-ent-end .pg-end-response{font-size:12px;}}
 </style>
 <script>
-(()=>{const root=document.getElementById('pg-ent-end');const name=A5Setup.username().trim();root.querySelector('.pg-end-whisper').textContent='Pssst…'+(name?' '+name:'')+' 👀';root.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>A5Setup.openDestination(button.dataset.action==='unlock'?'entertainment':'home')));
+(()=>{const root=document.getElementById('pg-ent-end');const name=A5Setup.username().trim();root.querySelector('.pg-end-whisper').textContent='Pssst\u2026'+(name?' '+name:'')+' \ud83d\udc40';root.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>A5Setup.openDestination(button.dataset.action==='unlock'?'entertainment':'home')));
 root.querySelector('.pg-end-primary').focus();root.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const buttons=Array.from(root.querySelectorAll('button'));buttons[(buttons.indexOf(document.activeElement)+1)%buttons.length].focus();}});})();
 </script><style>html,body{margin:0;background:#0b1527;}#pg-ent-end .pg-end-screen{min-height:100vh;}#pg-ent-end .pg-end-whisper{overflow-wrap:anywhere;max-width:85%;}</style>

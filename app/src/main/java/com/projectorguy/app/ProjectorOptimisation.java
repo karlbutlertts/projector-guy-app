@@ -20,7 +20,7 @@ final class ProjectorOptimisation {
   panel.setOrientation(LinearLayout.VERTICAL);
   panel.setPadding(24, 12, 24, 12);
   soundSwitch = new Switch(activity);
-  soundSwitch.setText("Remove navigation sounds");
+  soundSwitch.setText("Remove annoying navigation sounds");
   soundSwitch.setTextOn("ON");
   soundSwitch.setTextOff("OFF");
   soundSwitch.setShowText(true);
@@ -425,7 +425,7 @@ final class ProjectorOptimisation {
      performanceSwitch.setEnabled(true);
      gamingSwitch.setEnabled(true);
     if (touchSwitch != null) touchSwitch.setEnabled(true);
-     soundSwitch.setContentDescription("Remove navigation sounds " + (selected ? "on" : "off")
+     soundSwitch.setContentDescription("Remove annoying navigation sounds " + (selected ? "on" : "off")
          + ". Press OK to switch.");
      soundSwitch.requestFocus();
      if (enabled == null) performance(null);
