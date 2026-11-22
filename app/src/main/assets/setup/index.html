@@ -41,8 +41,8 @@ if(s.step===4){const bad=attention();main.innerHTML=`<p class="pg-eyebrow">ALMOS
 if(s.step===5){main.innerHTML=`<div class="pg-done"><img src="${assets.a5}" alt="A5 Pro"><span class="pg-check">\u2713</span></div><h1>Your A5 is ready, ${esc(displayName)}.</h1><p>Pick up the remote. Put your feet up. Enjoy.</p><div class="pg-summary"><span>\u2713 ${results.filter(a=>['ready','kept'].includes(a.status)).length} apps processed</span><span>${s.optDone?'\u2713 Improvements saved':'Improvements available later'}</span>${attention().length?`<span>${attention().length} left for later</span>`:''}</div><p>You\u2019ll go straight to Home next time you open Projector Guy.</p>`;buttons('One more thing\u2026 \u2192',false);}
 }
 function go(n){s.step=n;save();render();focusPrimary();}
-function begin(ids){busy=true;s.pending=true;phase='apps';job='Preparing selected apps\u2026';jobPercent=0;save();go(3);last='';A5Setup.installSelected(JSON.stringify(ids));}
-function optimise(){busy=true;phase='optimise';job='Applying your preferences\u2026';jobPercent=0;s.step=3;save();render();last='';A5Setup.optimise(JSON.stringify(choiceObject()));}
+function begin(ids){busy=true;s.pending=true;phase='apps';job='Preparing selected apps\u2026';jobPercent=0;save();go(3);A5Setup.installSelected(JSON.stringify(ids));}
+function optimise(){busy=true;phase='optimise';job='Applying your preferences\u2026';jobPercent=0;s.step=3;save();render();A5Setup.optimise(JSON.stringify(choiceObject()));}
 function finishWork(){busy=false;s.pending=false;save();if(attention().length||error)go(4);else{A5Setup.markComplete();go(5);}}
 function poll(){try{const raw=A5Setup.status();if(raw===last)return;last=raw;const d=JSON.parse(raw);
 if(d.state==='scanned'){apps=(d.apps||[]).filter(a=>a.name!=='Roblox').map(a=>({...a,name:a.name.startsWith('TellyGrid')?'Live TV guide':a.name}));const valid=new Set(apps.filter(a=>a.kind!=='keep').map(a=>a.id));if(!localStorage.getItem('pg_setup_v2'))s.selected=apps.filter(a=>a.kind==='update').map(a=>a.id);else s.selected=s.selected.filter(id=>valid.has(id));ready=true;error='';save();render();focusPrimary();}
