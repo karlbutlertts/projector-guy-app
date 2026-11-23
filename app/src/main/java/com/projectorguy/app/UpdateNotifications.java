@@ -19,7 +19,14 @@ final class UpdateNotifications {
   if(prefs(c).getBoolean("launcher_configured",false))LauncherUpdateSetup.ensure(c);
   HttpURLConnection connection=(HttpURLConnection)new URL("https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/apps.json").openConnection();connection.setConnectTimeout(10000);connection.setReadTimeout(10000);connection.setUseCaches(false);
   String body;try(InputStream in=connection.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>2*1024*1024)throw new IOException("Update feed too large");out.write(b,0,n);}body=out.toString("UTF-8");}finally{connection.disconnect();}
-  JSONArray candidates=findUpdates(c,new JSONArray(body));if(candidates.length()==0){prefs(c).edit().remove("pending").apply();return "up-to-date";}return queue(c,candidates,false);
+  if(Build.DEVICE.startsWith("pioneer5")&&System.currentTimeMillis()<=1796083199000L&&!prefs(c).getBoolean(TEST_NOTICE,false)){queueTestNotice(c);return "queued";}
+  JSONArray candidates=findUpdates(c,new JSONArray(body));if(candidates.length()==0){prefs(c).edit().remove("pending").apply();queueTestNotice(c);return "up-to-date";}return queue(c,candidates,false);
+ }
+ static final String TEST_NOTICE="pg-update-test-20261123";
+ static void queueTestNotice(Context c)throws Exception{
+  if(!enabled(c)||!Build.DEVICE.startsWith("pioneer5")||System.currentTimeMillis()>1796083199000L||prefs(c).getBoolean(TEST_NOTICE,false))return;
+  JSONArray notice=new JSONArray().put(new JSONObject().put("packageName","com.projectorguy.app").put("name","Projector Guy").put("versionCode",52).put("noticeId",TEST_NOTICE).put("noticeTitle","Projector Guy app has a new update").put("noticeBody","Test notification"));
+  prefs(c).edit().putString("pending",notice.toString()).apply();deliverPending(c);
  }
  static JSONArray findUpdates(Context c,JSONArray apps)throws Exception{
   java.util.LinkedHashMap<String,JSONObject> found=new java.util.LinkedHashMap<>();String model=android.os.Build.DEVICE.startsWith("pioneer5")?"a5pro":"360";
@@ -27,7 +34,7 @@ final class UpdateNotifications {
    try{PackageInfo installed=c.getPackageManager().getPackageInfo("com.projectorguy.app".equals(pkg)?c.getPackageName():pkg,0);long local=Build.VERSION.SDK_INT>=28?installed.getLongVersionCode():installed.versionCode,remote=a.optLong("versionCode",0);if(remote<=local)continue;JSONObject old=found.get(pkg);if(old==null||remote>old.optLong("versionCode"))found.put(pkg,new JSONObject().put("packageName",pkg).put("name",a.optString("name",pkg)).put("versionCode",remote));}catch(android.content.pm.PackageManager.NameNotFoundException ignored){}
   }return new JSONArray(found.values());
  }
- static String fingerprint(JSONArray updates){java.util.ArrayList<String> keys=new java.util.ArrayList<>();for(int i=0;i<updates.length();i++){JSONObject a=updates.optJSONObject(i);keys.add(a.optString("packageName")+":"+a.optLong("versionCode"));}java.util.Collections.sort(keys);return android.text.TextUtils.join("|",keys);}
+ static String fingerprint(JSONArray updates){java.util.ArrayList<String> keys=new java.util.ArrayList<>();for(int i=0;i<updates.length();i++){JSONObject a=updates.optJSONObject(i);keys.add(a.has("noticeId")?"notice:"+a.optString("noticeId"):a.optString("packageName")+":"+a.optLong("versionCode"));}java.util.Collections.sort(keys);return android.text.TextUtils.join("|",keys);}
  static String queue(Context c,JSONArray updates,boolean test)throws Exception{
   if(test&&!BuildConfig.DEBUG)throw new SecurityException("Debug preview only");if(!enabled(c))return "disabled";
   JSONObject seen=new JSONObject(prefs(c).getString("seen_versions","{}"));JSONArray fresh=new JSONArray();for(int i=0;i<updates.length();i++){JSONObject a=updates.getJSONObject(i);if(a.optLong("versionCode")>seen.optLong(a.optString("packageName"),0))fresh.put(a);}if(fresh.length()==0)return "already-notified";updates=fresh;
