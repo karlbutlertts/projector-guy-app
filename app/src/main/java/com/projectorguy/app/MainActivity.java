@@ -369,6 +369,8 @@ public class MainActivity extends AppCompatActivity {
     // ───────────────────────────────────────────────────────────────────────
 
     public void onUserUnlocked() {
+        UpdateNotifications.activate(this);
+
         if (updateCheckStarted) return;
         updateCheckStarted = true;
         updateStatusText.setText("Checking for updates…");
@@ -811,6 +813,7 @@ public class MainActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleInstallResult(intent);
+        if(intent.getBooleanExtra("update_notification",false)&&updateCheckStarted)runManualUpdateCheck();
         if(BuildConfig.A5_SETUP_ENABLED && !intent.hasExtra(PackageInstaller.EXTRA_STATUS)
                 && getSharedPreferences("a5_setup",0).getBoolean("complete",false)) {
             if(webView!=null && isCataloguePage(webView.getUrl())) openCompletedSetupDestination(intent.getStringExtra("setup_destination"));

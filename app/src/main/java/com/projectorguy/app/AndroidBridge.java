@@ -57,6 +57,21 @@ public class AndroidBridge {
     private ProjectorOptimisation optimisation;
 
     @JavascriptInterface
+    public void showUpdateNotifications() {
+      if(!(context instanceof android.app.Activity))return;
+      android.app.Activity a=(android.app.Activity)context;
+      a.runOnUiThread(()->{
+        android.widget.LinearLayout panel=new android.widget.LinearLayout(a);panel.setOrientation(1);panel.setPadding(32,24,32,24);
+        android.widget.TextView text=new android.widget.TextView(a);text.setText("Checks installed apps and Projector Guy about every six hours while connected, and after reboot. Alerts appear only on your Home screen and wait while another app is open. Installation stays under your control.");text.setTextSize(18);panel.addView(text);
+        android.widget.Switch toggle=new android.widget.Switch(a);toggle.setText("Background update notifications");toggle.setTextSize(20);toggle.setPadding(0,24,0,24);toggle.setChecked(UpdateNotifications.prefs(a).getBoolean("enabled",true));panel.addView(toggle);
+        toggle.setOnCheckedChangeListener((v,on)->{UpdateNotifications.setEnabled(a,on);});
+        if(!LauncherUpdateSetup.enabled(a)){android.widget.Button setup=new android.widget.Button(a);setup.setText("Finish Home-screen alert setup");panel.addView(setup);setup.setOnClickListener(v->a.startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)));}
+        android.widget.Button bannerButton=new android.widget.Button(a);bannerButton.setText(UpdateBanner.allowed(a)?"On-screen banner allowed":"Allow on-screen update banner");panel.addView(bannerButton);bannerButton.setOnClickListener(v->{try{a.startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,android.net.Uri.parse("package:"+a.getPackageName())));}catch(Exception ignored){}});
+        new android.app.AlertDialog.Builder(a).setTitle("Update notifications").setView(panel).setPositiveButton("Done",null).show();
+      });
+    }
+
+    @JavascriptInterface
     public void startA5Setup(String username) {
         if(!BuildConfig.A5_SETUP_ENABLED || !Build.DEVICE.startsWith("pioneer5") || !(context instanceof android.app.Activity) || context.getSharedPreferences("a5_setup",0).getBoolean("complete",false))return;
         android.app.Activity a=(android.app.Activity)context;

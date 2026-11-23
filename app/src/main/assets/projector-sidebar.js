@@ -114,6 +114,9 @@
 
     const view = document.getElementById('viewBody');
     function addShortcutSetup() {
+      if (typeof bridge.showUpdateNotifications === 'function' && view.querySelector('.panel-row [data-action="change-model"]') && !view.querySelector('#updateNotificationSettings')) {
+        const notice=document.createElement('div');notice.id='updateNotificationSettings';notice.className='panel-row';notice.innerHTML='<div class="panel-label"><b>Update notifications</b><span>Get alerts while Projector Guy is closed</span></div><button class="panel-btn nav-focusable" type="button">Open</button>';notice.querySelector('button').onclick=()=>bridge.showUpdateNotifications();view.appendChild(notice);
+      }
       const changeModel = view.querySelector('.panel-row [data-action="change-model"]');
       if (!changeModel || view.querySelector('#pictureShortcutSetup')) return;
       const row = document.createElement('div');
