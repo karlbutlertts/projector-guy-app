@@ -60,7 +60,7 @@ public class AndroidBridge {
     public void startA5Setup(String username) {
         if(!BuildConfig.A5_SETUP_ENABLED || !Build.DEVICE.startsWith("pioneer5") || !(context instanceof android.app.Activity) || context.getSharedPreferences("a5_setup",0).getBoolean("complete",false))return;
         android.app.Activity a=(android.app.Activity)context;
-        a.runOnUiThread(()->{a.startActivity(new Intent(a,A5SetupActivity.class).putExtra("setup_username",username));a.finish();});
+        a.runOnUiThread(()->{a.startActivity(new Intent(a,A5SetupActivity.class).putExtra("setup_username",username).putExtra("setup_after_selection",true));a.finish();});
     }
     @JavascriptInterface
     public boolean hasNavigationSoundControl() {
@@ -76,6 +76,14 @@ public class AndroidBridge {
                 optimisation.show(model);
             });
         }
+    }
+
+    @JavascriptInterface
+    public boolean openProjectorCare() {
+        if (!(context instanceof android.app.Activity)) return false;
+        android.app.Activity a=(android.app.Activity)context;
+        a.runOnUiThread(()->a.startActivity(new Intent(a,ProjectorCareActivity.class)));
+        return true;
     }
 
     @JavascriptInterface

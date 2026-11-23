@@ -72,6 +72,7 @@
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/factory_menu_english" />
         </service>
+        <activity android:name=".ProjectorCareActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".NetworkSpeedActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".A5SetupActivity" android:exported="false" android:screenOrientation="landscape" />
         <!-- Vendor SDK for picture/sound-mode control (com.newlink.android.projector),

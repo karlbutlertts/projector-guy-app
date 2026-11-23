@@ -196,11 +196,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                if(BuildConfig.A5_SETUP_ENABLED && (getIntent().hasExtra("setup_destination") || getSharedPreferences("a5_setup",0).getBoolean("complete",false))) {
+                if(BuildConfig.A5_SETUP_ENABLED && getIntent().hasExtra("setup_destination")) {
                     openCompletedSetupDestination(getIntent().getStringExtra("setup_destination"));
                 }
                 if(BuildConfig.A5_SETUP_ENABLED && !getIntent().hasExtra("setup_destination") && !getSharedPreferences("a5_setup",0).getBoolean("complete",false)) {
-                    view.evaluateJavascript("(function(){if(window._pgSetupHook||typeof selectModel!=='function')return;window._pgSetupHook=true;const original=selectModel;selectModel=function(model){if(model==='a5pro'&&AndroidBridge.hasNavigationSoundControl()){saveModel(model);AndroidBridge.startA5Setup(localStorage.getItem('xbj_username')||'');return;}original(model);};if(loadSession()&&loadModel()==='a5pro'&&AndroidBridge.hasNavigationSoundControl())AndroidBridge.startA5Setup(localStorage.getItem('xbj_username')||'');})()",null);
+                    view.evaluateJavascript("(function(){if(window._pgSetupHook||typeof selectModel!=='function')return;window._pgSetupHook=true;const original=selectModel;selectModel=function(model){if(typeof loadSession==='function'&&loadSession()>Date.now()&&model==='a5pro'&&AndroidBridge.hasNavigationSoundControl()){saveModel(model);AndroidBridge.startA5Setup(localStorage.getItem('xbj_username')||'');return;}original(model);};})()",null);
                 }
                 Uri uri = Uri.parse(url);
                 if (!trusted(uri) || !isCataloguePage(url)) return;
@@ -936,6 +936,9 @@ public class MainActivity extends AppCompatActivity {
         } else if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
+            if(android.os.Build.DEVICE.startsWith("pioneer5") && getSharedPreferences("projector_optimisation",0).getBoolean("close_apps_on_exit",false)) {
+                new Thread(() -> {try(ProjectorCare care=new ProjectorCare(getApplicationContext())) {care.freeRam();}catch(Exception e){Log.w(TAG,"Exit cleanup could not complete",e);}},"ExitCleanup").start();
+            }
             super.onBackPressed();
         }
     }

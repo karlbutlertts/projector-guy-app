@@ -1,0 +1,19 @@
+(()=>{
+const root=document.getElementById('pg-care-preview'),find=id=>document.getElementById(id);let screen='status',last='',data={busy:true},closed=false;
+function size(n){n=Number(n)||0;return n>=1073741824?(n/1073741824).toFixed(2)+' GB':(n/1048576).toFixed(1)+' MB';}
+function value(id,n){find(id).textContent=(n>=1073741824?(n/1073741824).toFixed(2):(n/1048576).toFixed(0));find(id).nextElementSibling.textContent=n>=1073741824?'GB':'MB';}
+function show(name){screen=name;root.querySelectorAll('[data-page]').forEach(n=>n.hidden=n.dataset.page!==name);const primary=name==='cleanup'?find('pg-clean'):find('pg-refresh');primary?.focus();}
+function selected(){return (find('pg-installers').checked?(data.installerBytes||0):0)+(find('pg-cache').checked?(data.cacheBytes||0):0);}
+function controls(){root.querySelectorAll('button').forEach(b=>b.disabled=!!data.busy);find('pg-installers').disabled=!!data.busy||!data.installerBytes;find('pg-cache').disabled=!!data.busy||!data.cacheSupported||!data.cacheBytes;find('pg-clean').disabled=!!data.busy||selected()===0;find('selected-size').textContent=size(selected());}
+root.querySelectorAll('[data-screen]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.screen==='tools')ProjectorCare.back();else if(!data.busy)show(b.dataset.screen);}));
+find('pg-refresh').onclick=()=>{ProjectorCare.refresh();};find('pg-ram').onclick=()=>{ProjectorCare.freeRam();};
+find('pg-clean').onclick=()=>{ProjectorCare.clean(find('pg-installers').checked,find('pg-cache').checked);show('status');};
+['pg-installers','pg-cache'].forEach(id=>find(id).onchange=controls);
+window.careBack=()=>{if(data.busy)return;if(screen==='cleanup')show('status');else ProjectorCare.back();};
+function refresh(){if(closed)return;try{const raw=ProjectorCare.status();if(raw===last)return;last=raw;data=JSON.parse(raw);
+ if(data.ramTotal){value('ram-value',data.ramAvailable);find('ram-used').textContent=size(data.ramTotal-data.ramAvailable)+' in use';find('ram-used').nextElementSibling.textContent=size(data.ramTotal)+' usable RAM';find('ram-meter').style.width=Math.max(0,Math.min(100,data.ramAvailable/data.ramTotal*100))+'%';}
+ if(data.storageTotal){value('storage-value',data.storageAvailable);find('storage-used').textContent=size(data.storageTotal-data.storageAvailable)+' used';find('storage-used').nextElementSibling.textContent=size(data.storageTotal)+' data partition';find('storage-meter').style.width=Math.max(0,Math.min(100,data.storageAvailable/data.storageTotal*100))+'%';}
+ if(!data.installerBytes)find('pg-installers').checked=false;find('installer-size').textContent=size(data.installerBytes);find('cache-size').textContent=data.cacheSupported?size(data.cacheBytes):'Unavailable';find('reclaimable').textContent=size((data.installerBytes||0)+(data.cacheBytes||0));find('pg-status-result').textContent=(data.message||'')+(data.cacheNote?' '+data.cacheNote:'');find('pg-status-result').style.color=data.error?'#ffbeaa':'#9ee1cf';controls();
+ }catch(e){find('pg-status-result').textContent='Unable to read projector status. Please reopen this screen.';}}
+find('ram-value').nextElementSibling.textContent='';find('storage-value').nextElementSibling.textContent='';root.querySelectorAll('.meter>span').forEach(n=>n.style.width='0%');show('status');controls();setInterval(refresh,500);refresh();window.addEventListener('pagehide',()=>closed=true);
+})();

@@ -73,6 +73,19 @@
   }
 
   const bridge = window.AndroidBridge;
+  if (typeof bridge.openProjectorCare === 'function' && typeof renderAppView === 'function') {
+    const renderBeforeCare = renderAppView;
+    window.renderAppView = function(view) {
+      let html=renderBeforeCare(view);
+      if (view === 'tools' && typeof loadModel === 'function' && loadModel() === 'a5pro') {
+        const tile='<button type="button" class="card nav-focusable" onclick="AndroidBridge.openProjectorCare()"><div class="card-art" style="background:linear-gradient(145deg,#355e8b,#1e304d)"><span class="card-abbr">RAM</span></div><div class="card-title">RAM &amp; storage</div><div class="card-sub">Check space. Tidy up.</div></button>';
+        html=html.replace('<div class="grid">','<div class="grid">'+tile);
+      }
+      return html;
+    };
+    if (typeof currentView !== 'undefined' && currentView === 'tools') refreshView();
+  }
+
   if (typeof bridge.openNetworkSpeedChecker === 'function') {
     insertControl(tools.nextElementSibling, 'sideNetworkSpeed', 'Network speed',
       () => bridge.openNetworkSpeedChecker(),

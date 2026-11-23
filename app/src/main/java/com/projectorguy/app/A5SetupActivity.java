@@ -26,7 +26,8 @@ public class A5SetupActivity extends Activity {
  private static final String FEED="https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/apps.json";
  private static final String BASE="https://raw.githubusercontent.com/karlbutlertts/xbj-apk-store/main/apks/";
  @Override public void onCreate(Bundle saved){super.onCreate(saved);
-  if(getSharedPreferences("a5_setup",0).getBoolean("complete",false) && !getIntent().getBooleanExtra("setup_endcard",false)) {
+  if(!android.os.Build.DEVICE.startsWith("pioneer5") || (!getIntent().getBooleanExtra("setup_after_selection",false) && !(BuildConfig.DEBUG && getIntent().getBooleanExtra("care_preview",false)))) { startActivity(new Intent(this,MainActivity.class));finish();return; }
+  if(getSharedPreferences("a5_setup",0).getBoolean("complete",false) && !getIntent().getBooleanExtra("setup_endcard",false) && !(BuildConfig.DEBUG && getIntent().getBooleanExtra("care_preview",false))) {
    startActivity(new Intent(this,MainActivity.class).putExtra("setup_destination","home"));finish();return;
   }
   getWindow().getDecorView().setSystemUiVisibility(5894);
@@ -41,7 +42,7 @@ public class A5SetupActivity extends Activity {
   if(BuildConfig.DEBUG && getIntent().getBooleanExtra("setup_endcard",false)) {
    web.loadUrl("file:///android_asset/setup/endcard.html");
   } else {
-   web.loadUrl("file:///android_asset/setup/index.html");scan();
+   web.loadUrl("file:///android_asset/setup/index.html"+(BuildConfig.DEBUG && getIntent().getBooleanExtra("care_preview",false)?"#care-options":""));scan();
   }
  }
  private void publish(String state,String message,JSONArray apps,int index,int total)throws Exception{
@@ -136,7 +137,13 @@ public class A5SetupActivity extends Activity {
   @JavascriptInterface public void stopAfterApp(){stop=true;}
   @JavascriptInterface public void optimise(String json){if(!busy.compareAndSet(false,true))return;new Thread(()->{
    try{JSONObject choices=new JSONObject(json);new ProjectorOptimisation(A5SetupActivity.this).applySetup(choices,(message,done,total)->{try{publish("optimising",message,null,done,total);}catch(Exception ignored){}});
-    getSharedPreferences("a5_setup",0).edit().putString("optimise",json).putBoolean("complete",true).commit();publish("optimised","Your optimisation choices are saved.",null,1,1);
+    String cleanupMessage="";
+    if(choices.optBoolean("closeBackgroundOnExit",false)) {
+      publish("optimising","Closing eligible background apps…",null,99,100);
+      try (ProjectorCare cleanup=new ProjectorCare(A5SetupActivity.this)) { cleanupMessage=" "+cleanup.freeRam(); }
+      catch(Exception cleanupError) { cleanupMessage=" Background cleanup could not finish; your optimisation settings are saved. You can retry from Tools."; }
+    }
+    getSharedPreferences("a5_setup",0).edit().putString("optimise",json).putBoolean("complete",true).commit();publish("optimised","Your optimisation choices are saved."+cleanupMessage,null,1,1);
    }catch(Exception e){fail(e);}finally{busy.set(false);}
   },"A5SetupOptimise").start();}
   @JavascriptInterface public void markComplete(){if(!busy.get())getSharedPreferences("a5_setup",0).edit().putBoolean("complete",true).commit();}

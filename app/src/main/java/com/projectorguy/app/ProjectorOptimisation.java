@@ -65,6 +65,14 @@ final class ProjectorOptimisation {
   touchSwitch.setOnClickListener(view -> touchscreenControls(touchSwitch.isChecked()));
   panel.addView(touchSwitch, new LinearLayout.LayoutParams(
       LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+  Switch exitSwitch = new Switch(activity);
+  exitSwitch.setText("Close background apps on exit");
+  exitSwitch.setTextOn("ON"); exitSwitch.setTextOff("OFF"); exitSwitch.setShowText(true);
+  exitSwitch.setTextSize(20); exitSwitch.setPadding(12,16,12,16); styleSwitch(exitSwitch);
+  exitSwitch.setChecked(prefs.getBoolean("close_apps_on_exit",false));
+  exitSwitch.setOnClickListener(v -> { prefs.edit().putBoolean("close_apps_on_exit",exitSwitch.isChecked()).apply();
+   if(exitSwitch.isChecked())new AlertDialog.Builder(activity).setMessage("When you exit Projector Guy with Back, Android will close eligible background apps. The launcher and essential services stay running. Your choice is saved after reboot.").setPositiveButton("Mate... I know",null).show(); });
+  panel.addView(exitSwitch,new LinearLayout.LayoutParams(-1,-2));
   android.widget.ScrollView scroll = new android.widget.ScrollView(activity);
   scroll.addView(panel);
   AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("Optimise A5 Pro").setView(scroll)
@@ -85,6 +93,7 @@ final class ProjectorOptimisation {
  void applySetup(JSONObject choices,SetupProgress progress) throws Exception {
   if(!Build.DEVICE.startsWith("pioneer5")) throw new Exception("A5 Pro only");
   if(!busy.compareAndSet(false,true)) throw new Exception("Optimisation already running");
+  prefs.edit().putBoolean("close_apps_on_exit",choices.optBoolean("closeBackgroundOnExit",false)).commit();
   setupProgress=(message,done,total)->progress.update(message,10+(int)(90L*done/Math.max(1,total)),100);
   try(LocalAdb adb=new LocalAdb(activity)) {
    if(!command(adb,"su 0 id").contains("uid=0")) throw new Exception("Root access was not approved");
