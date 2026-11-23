@@ -17,8 +17,8 @@ android {
         buildConfigField "boolean", "A5_SETUP_ENABLED", "true"
         minSdk 21
         targetSdk 34
-        versionCode 52
-        versionName "2.15.5"
+        versionCode 53
+        versionName "2.15.6"
     }
 
     signingConfigs {
