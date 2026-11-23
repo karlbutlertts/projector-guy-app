@@ -78,6 +78,24 @@ public class AndroidBridge {
         }
     }
 
+    @JavascriptInterface
+    public boolean openNetworkSpeedChecker() {
+        if (!(context instanceof android.app.Activity)) return false;
+        android.app.Activity a=(android.app.Activity)context;
+        a.runOnUiThread(()->a.startActivity(new Intent(a,NetworkSpeedActivity.class)));
+        return true;
+    }
+
+    @JavascriptInterface
+    public boolean hasFactoryTranslation() {try{context.getPackageManager().getPackageInfo("com.newlink.factorymenu",0);return true;}catch(Exception e){return false;}}
+    @JavascriptInterface
+    public boolean openFactoryTranslation() {
+        if (!(context instanceof android.app.Activity)) return false;
+        android.app.Activity a=(android.app.Activity)context;
+        a.runOnUiThread(()->a.startActivity(new Intent(a,FactoryTranslationActivity.class)));
+        return true;
+    }
+
     // Shared streaming write sessions (used by both uota and root writers)
     private final ConcurrentHashMap<String, FileOutputStream> sessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, File> sessionFiles = new ConcurrentHashMap<>();
@@ -102,6 +120,7 @@ public class AndroidBridge {
      */
     @JavascriptInterface
     public void onUnlocked() {
+        FactoryTranslationSetup.ensureDefault(context);
         if (context instanceof MainActivity) {
             ((MainActivity) context).runOnUiThread(((MainActivity) context)::onUserUnlocked);
         }
@@ -773,6 +792,7 @@ public class AndroidBridge {
      */
     @JavascriptInterface
     public boolean launchActivity(String packageName, String activityName) {
+        if ("com.newlink.factorymenu".equals(packageName)) FactoryTranslationSetup.ensureDefault(context);
         String cls = activityName.startsWith(".") ? packageName + activityName : activityName;
         Intent intent = new Intent();
         intent.setClassName(packageName, cls);

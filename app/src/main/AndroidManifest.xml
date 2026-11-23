@@ -67,6 +67,12 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.ProjectorGuy">
 
+        <activity android:name=".FactoryTranslationActivity" android:exported="false" android:screenOrientation="landscape" />
+        <service android:name=".FactoryMenuEnglishService" android:exported="true" android:label="Projector Guy English factory menus" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/factory_menu_english" />
+        </service>
+        <activity android:name=".NetworkSpeedActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name=".A5SetupActivity" android:exported="false" android:screenOrientation="landscape" />
         <!-- Vendor SDK for picture/sound-mode control (com.newlink.android.projector),
              backed by NLProjector.jar on the device's framework classpath. Not present

@@ -73,6 +73,15 @@
   }
 
   const bridge = window.AndroidBridge;
+  if (typeof bridge.openNetworkSpeedChecker === 'function') {
+    insertControl(tools.nextElementSibling, 'sideNetworkSpeed', 'Network speed',
+      () => bridge.openNetworkSpeedChecker(),
+      'M3 17a9 9 0 0 1 18 0 M12 17l5-7 M6 17h1 M17 17h1');
+  }
+  if (typeof bridge.hasFactoryTranslation === 'function' && bridge.hasFactoryTranslation()) {
+    insertControl(tools.nextElementSibling, 'sideFactoryTranslation', 'English menus',
+      () => bridge.openFactoryTranslation(), 'M4 5h12 M10 3v2 M6 9l8 10 M14 8c-1 6-5 9-10 11 M15 20l4-12 4 12 M17 16h4');
+  }
   if (bridge.hasPictureSettings()) {
     const openPanel = () => bridge.openPictureAndSoundSettings();
     insertControl(tools, 'sidePictureSettings', 'Picture Settings', openPanel,

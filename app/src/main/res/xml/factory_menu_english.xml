@@ -1,0 +1,7 @@
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+ android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewFocused|typeViewScrolled|typeWindowsChanged"
+ android:accessibilityFeedbackType="feedbackVisual"
+ android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+ android:canRetrieveWindowContent="true"
+ android:packageNames="com.newlink.factorymenu"
+ android:notificationTimeout="80" />
