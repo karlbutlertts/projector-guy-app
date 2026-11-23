@@ -18,6 +18,7 @@
     '#sidebar [data-view="all"], #stage [data-chipview="all"] { display: none; }',
     '#sidebar .side-item, #stage .chip, #stage .card, #stage .card-art { transition: none; }',
     '#stage .row, #stage .hero, #stage .ent-panel-lock { animation: none; }',
+    '#stage .grid { align-items: flex-start; }',
     '#stage .card:focus-visible, #stage .card.nav-focus { transform: none; }',
     '#stage .rail { scroll-behavior: auto; }'
   ].join('\n');
@@ -78,7 +79,7 @@
     window.renderAppView = function(view) {
       let html=renderBeforeCare(view);
       if (view === 'tools' && typeof loadModel === 'function' && loadModel() === 'a5pro') {
-        const tile='<button type="button" class="card nav-focusable" onclick="AndroidBridge.openProjectorCare()"><div class="card-art" style="background:linear-gradient(145deg,#355e8b,#1e304d)"><span class="card-abbr">RAM</span></div><div class="card-title">RAM &amp; storage</div><div class="card-sub">Check space. Tidy up.</div></button>';
+        const tile='<button type="button" class="card nav-focusable" onclick="AndroidBridge.openProjectorCare()"><div class="card-art" style="background:radial-gradient(circle at 25% 20%,#57d8c1,transparent 60%),linear-gradient(145deg,#167d91,#152d59)"><div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:16px;color:#efffff"><svg width="70" height="70" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m29 35 22-24a4 4 0 0 1 6 6L33 39M17 29l20 17c-9 13-22 12-30 6 8-4 7-14 10-23ZM16 45l-4 8M24 48l-3 8M10 11v10M5 16h10M40 4v6M37 7h6"/></svg><span style="font-size:29px;font-weight:800">CLEAN</span></div></div><div class="card-title">Clean</div><div class="card-blurb">RAM &amp; storage</div><div class="card-sub">Check space. Tidy up.</div></button>';
         html=html.replace('<div class="grid">','<div class="grid">'+tile);
       }
       return html;

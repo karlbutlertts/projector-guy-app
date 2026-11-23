@@ -81,19 +81,24 @@ final class ProjectorCare implements AutoCloseable {
   try{if(!root("id").contains("uid=0"))throw new IOException("Root unavailable");j.put("cacheBytes",cacheBytes(eligible(),processes())).put("cacheSupported",true);}catch(Exception e){j.put("cacheBytes",0).put("cacheSupported",false).put("cacheNote","App-cache cleanup is unavailable on this unit. Your app data is kept.");}
   return j;
  }
- String freeRam()throws Exception{
+ interface Progress { void update(String message,int done,int total); }
+ String freeRam()throws Exception{return freeRam((m,d,t)->{});}
+ String freeRam(Progress progress)throws Exception{
   if(!Build.DEVICE.startsWith("pioneer5"))throw new IOException("Background cleanup is supported on A5 Pro only");
   if(!root("id").contains("uid=0"))throw new IOException("Root access is unavailable");
   String before=processes();List<String> candidates=eligible();int attempted=0;
-  for(String pkg:candidates)if(hasProcess(before,pkg)){root("am kill --user 0 "+quote(pkg));attempted++;}
+  int index=0;progress.update("Checking background apps…",0,candidates.size());
+  for(String pkg:candidates){if(hasProcess(before,pkg)){root("am kill --user 0 "+quote(pkg));attempted++;}progress.update("Checking background apps",++index,candidates.size());}
   Thread.sleep(600);String after=processes();int closed=0;
   for(String pkg:candidates)if(hasProcess(before,pkg)&&!hasProcess(after,pkg))closed++;
   return closed+" app process"+(closed==1?"":"es")+" closed. "+(attempted-closed)+" app"+(attempted-closed==1?" was":"s were")+" kept by Android. RAM availability changes as apps run.";
  }
- JSONObject clean(boolean installers,boolean cache)throws Exception{
+ JSONObject clean(boolean installers,boolean cache)throws Exception{return clean(installers,cache,(m,d,t)->{});}
+ JSONObject clean(boolean installers,boolean cache,Progress progress)throws Exception{
   long before=new StatFs(Environment.getDataDirectory().getAbsolutePath()).getAvailableBytes(),removed=0;int skipped=0;
-  if(installers){for(File f:completedInstallers()){long n=f.length();if(!Files.isSymbolicLink(f.toPath())&&f.delete())removed+=n;}}
-  if(cache){String ps=processes();for(String pkg:eligible()){if(hasProcess(processes(),pkg)){skipped++;continue;}long n=cacheBytes(Collections.singletonList(pkg),ps);root(cacheCommand(pkg,true));long left=cacheBytes(Collections.singletonList(pkg),processes());removed+=Math.max(0,n-left);}}
+  List<File> files=installers?completedInstallers():Collections.emptyList();List<String> packages=cache?eligible():Collections.emptyList();int done=0,total=Math.max(1,files.size()+packages.size());progress.update("Checking temporary files…",0,total);
+  if(installers){for(File f:files){long n=f.length();if(!Files.isSymbolicLink(f.toPath())&&f.delete())removed+=n;progress.update("Removing completed downloads",++done,total);}}
+  if(cache){String ps=processes();for(String pkg:packages){if(hasProcess(processes(),pkg)){skipped++;progress.update("Skipping running app",++done,total);continue;}long n=cacheBytes(Collections.singletonList(pkg),ps);root(cacheCommand(pkg,true));long left=cacheBytes(Collections.singletonList(pkg),processes());removed+=Math.max(0,n-left);progress.update("Clearing inactive app cache",++done,total);}}
   long after=new StatFs(Environment.getDataDirectory().getAbsolutePath()).getAvailableBytes();
   return new JSONObject().put("removedBytes",removed).put("freeSpaceChange",after-before).put("skippedRunning",skipped);
  }
