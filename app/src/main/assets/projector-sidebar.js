@@ -78,16 +78,10 @@
       () => bridge.openNetworkSpeedChecker(),
       'M3 17a9 9 0 0 1 18 0 M12 17l5-7 M6 17h1 M17 17h1');
   }
-  if (typeof bridge.hasFactoryTranslation === 'function' && bridge.hasFactoryTranslation()) {
-    insertControl(tools.nextElementSibling, 'sideFactoryTranslation', 'English menus',
-      () => bridge.openFactoryTranslation(), 'M4 5h12 M10 3v2 M6 9l8 10 M14 8c-1 6-5 9-10 11 M15 20l4-12 4 12 M17 16h4');
-  }
   if (bridge.hasPictureSettings()) {
     const openPanel = () => bridge.openPictureAndSoundSettings();
-    insertControl(tools, 'sidePictureSettings', 'Picture Settings', openPanel,
+    insertControl(tools, 'sidePictureSettings', 'Picture & Sound Settings', openPanel,
       'M3 5h18v14H3z M5 16l4-4 3 3 3-4 4 5');
-    insertControl(tools, 'sideSoundControl', 'Sound Settings', openPanel,
-      'M4 9h4l5-4v14l-5-4H4z M16 9a4 4 0 0 1 0 6 M19 6a8 8 0 0 1 0 12');
 
     if (typeof bridge.hasNavigationSoundControl === 'function' && bridge.hasNavigationSoundControl()) {
       insertControl(tools, 'sideOptimiseControls', 'Optimise A5 Pro', () => {
